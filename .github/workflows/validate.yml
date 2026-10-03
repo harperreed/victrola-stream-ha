@@ -17,10 +17,14 @@ jobs:
   hacs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # hacs/action is self-contained (it clones the target repo itself);
+      # its documented example has no checkout step.
       - uses: hacs/action@main
         with:
           category: integration
+          # Default "true" posts a PR comment, which needs pull-requests:
+          # write; this job stays read-only without it.
+          comment: false
 
   tests:
     runs-on: ubuntu-latest
