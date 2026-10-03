@@ -13,12 +13,7 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import (
-    NODE_MOTOR,
-    NODE_SONOS_SESSION,
-    NODE_UPNP_STATE,
-    UPNP_STREAMING_STATES,
-)
+from .const import NODE_MOTOR, NODE_SONOS_SESSION
 from .coordinator import VictrolaConfigEntry, VictrolaState
 from .entity import VictrolaEntity, VictrolaEntityDescriptionMixin
 
@@ -28,15 +23,13 @@ def _platter_spinning(state: VictrolaState) -> bool | None:
 
 
 def _streaming_available(state: VictrolaState) -> bool:
-    """Only Sonos and UPnP mode report a streaming session today."""
-    return state.output in ("sonos", "upnp")
+    """Only Sonos mode reports a streaming session today; UPnP is v2."""
+    return state.output == "sonos"
 
 
 def _streaming(state: VictrolaState) -> bool | None:
     if state.output == "sonos":
         return state.value(NODE_SONOS_SESSION).as_bool()
-    if state.output == "upnp":
-        return state.value(NODE_UPNP_STATE).payload in UPNP_STREAMING_STATES
     return None
 
 

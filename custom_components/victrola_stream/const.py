@@ -21,7 +21,6 @@ NODE_MCU_FIRMWARE = "hostlink:hostFirmwareVersion"
 # State: values that change while the device runs.
 NODE_MOTOR = "hostlink:motorDet"
 NODE_SONOS_SESSION = "victrola:isConnectedToSonosGroup"
-NODE_UPNP_STATE = "victrola:UpnpState"
 NODE_VOLUME = "player:volume"
 NODE_MUTE = "settings:/mediaPlayer/mute"
 NODE_AUTOPLAY = "settings:/victrola/autoplay"
@@ -52,9 +51,6 @@ URL_PATHS: dict[str, str] = {
     "flac": "adchls:serverUrl/flac",
 }
 
-# victrola:UpnpState values that count as "streaming" for the binary sensor.
-UPNP_STREAMING_STATES = frozenset({"playing"})  # ❓ verify in Task 12
-
 IDENTITY_PATHS = (
     NODE_SERIAL,
     NODE_MAC,
@@ -68,7 +64,6 @@ IDENTITY_PATHS = (
 STATE_PATHS = (
     NODE_MOTOR,
     NODE_SONOS_SESSION,
-    NODE_UPNP_STATE,
     NODE_VOLUME,
     NODE_MUTE,
     NODE_AUTOPLAY,

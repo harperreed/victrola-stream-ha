@@ -56,3 +56,18 @@ async def test_streaming_unavailable_in_roon_mode(hass, fake):
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
+
+
+async def test_streaming_unavailable_in_upnp_mode(hass, fake):
+    # R22: UPnP streaming state is deferred to v2; treat it like Roon/Bluetooth.
+    fake.values[OUTPUT_TOGGLES["sonos"]] = _bool_value(False)
+    fake.values[OUTPUT_TOGGLES["upnp"]] = _bool_value(True)
+
+    entry = await setup_entry(hass, fake)
+    serial = fixture_serial(fake)
+    entity_id = entity_id_for(hass, "binary_sensor", serial, "streaming")
+
+    assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
