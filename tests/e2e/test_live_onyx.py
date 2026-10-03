@@ -12,6 +12,7 @@ from typing import Any
 
 import pytest
 from homeassistant.components.media_source import (
+    Unresolvable,
     async_resolve_media,
     generate_media_source_id,
 )
@@ -141,7 +142,13 @@ async def test_live_brightness_roundtrip(
 
 
 async def test_live_stream_urls_answer(hass: HomeAssistant, victrola_host: str) -> None:
-    """Every populated stream URL answers with its documented content type."""
+    """Every populated stream URL answers with its documented content type.
+
+    gotchas.md: after ~10 idle minutes the device sits in network standby and
+    every adchls:serverUrl* node reads "" -- an empty URL is "no stream right
+    now", not an error, so each format skips rather than fails when standby
+    is caught mid-loop.
+    """
     entry = await setup_live_entry(hass, victrola_host)
     try:
         session = async_get_clientsession(hass)
@@ -149,7 +156,8 @@ async def test_live_stream_urls_answer(hass: HomeAssistant, victrola_host: str) 
 
         for fmt, expected_type in _EXPECTED_CONTENT_TYPES.items():
             url = entry.runtime_data.data.stream_url(fmt)
-            assert url, f"no {fmt} stream URL: device reports none right now"
+            if not url:
+                pytest.skip(f"device in standby: no {fmt} stream right now")
             async with session.get(url) as resp:
                 assert resp.status == 200
                 assert resp.content_type == expected_type
@@ -179,17 +187,28 @@ async def test_live_stream_urls_answer(hass: HomeAssistant, victrola_host: str) 
 async def test_live_media_source_resolves_current_url(
     hass: HomeAssistant, victrola_host: str
 ) -> None:
-    """Resolving the flac source matches a fresh adchls:serverUrl/flac read."""
+    """Resolving the flac source matches a fresh adchls:serverUrl/flac read.
+
+    In standby that fresh read is "" and media_source.py raises Unresolvable
+    (gotchas.md: an empty URL means no stream right now, not an error) --
+    pin both branches live rather than skip the standby one.
+    """
     await async_setup_component(hass, "media_source", {})
     entry = await setup_live_entry(hass, victrola_host)
     try:
-        played = await async_resolve_media(
-            hass, generate_media_source_id(DOMAIN, f"{entry.entry_id}/flac"), None
-        )
-        fresh = await entry.runtime_data.client.get_value(URL_PATHS["flac"])
+        # Independent of media_source.py's own internal read, so this checks
+        # what the device actually has right now, not the same call twice.
+        independent_client = NsdkClient(async_get_clientsession(hass), victrola_host)
+        fresh = await independent_client.get_value(URL_PATHS["flac"])
+        media_source_id = generate_media_source_id(DOMAIN, f"{entry.entry_id}/flac")
 
-        assert played.url == fresh.as_str()
-        assert played.mime_type == "audio/ogg"
+        if fresh.as_str():
+            played = await async_resolve_media(hass, media_source_id, None)
+            assert played.url == fresh.as_str()
+            assert played.mime_type == "audio/ogg"
+        else:
+            with pytest.raises(Unresolvable):
+                await async_resolve_media(hass, media_source_id, None)
     finally:
         await teardown_live_entry(hass, entry)
 
