@@ -1,18 +1,19 @@
 # Victrola Stream for Home Assistant — Implementation Plan
 
 ## Now
-- Step: publish prep on `chore/publish-prep`: backup bundle, history rewrite (C1), two 🟡 fixes, CI workflow, then a private GitHub repo
-- Next: merge `feat/v1` into `main` locally (approved below); later, Task 14 publish after the C1 history rewrite and the two 🟡 fixes (push-loop backoff growth, `_send` RuntimeError)
+- Step: Task 14 Step 4, CI on the private repo (run 37159484167): tests ✅, hassfest ✅, hacs ❌ 2 of 9 checks. Both failures come from the private visibility, not the repo. HACS fetches `hacs.json` and `manifest.json` from `raw.githubusercontent.com` with no token (`async_download_file` in hacs/integration), a private repo answers 404, and the validators get `None`. Both files match HACS's schemas (`HACS_MANIFEST_JSON_SCHEMA`, `INTEGRATION_MANIFEST_JSON_SCHEMA`), and the other 7 checks passed.
+- Next: on Doctor Biz's word, flip the repo public, push `main`, see all three CI jobs green, then Step 5 (tag `v0.1.0`, release). The tag waits for a green HACS run because HACS installs the latest release.
+- Done: `feat/v1` and `chore/publish-prep` merged into `main`; history rewritten (C1); repo `harperreed/victrola-stream-ha` created private and `main` pushed; topics added; a fresh clone of GitHub's copy holds 51 commits and 0 private-term hits in files or commit messages
 - Approved: Integration choice: "1" — merge back to main locally (2026-10-03)
 - Approved: Publish prep (Task 14 + the history rewrite + the two 🟡 fixes): "let's get it ready for publishing. create the repo at harperreed/" (2026-10-03)
 - Approved: Visibility: "Private, then public (Recommended)" — create private, CI green, verify history on GitHub's copy, flip public only on Doctor Biz's word (2026-10-03)
-- Open: merge `feat/v1` → `main`; git-history rewrite before any publish (C1); Task 14 publish HELD until Doctor Biz says publish
+- Open: flip the repo public? HELD (outward-facing) until Doctor Biz says so
 - Approved: Live checklist: "let's try it live" (2026-10-03); UPnP: "let's wrap up and leave upnp for v2" (2026-10-03)
 - Live checklist results (2026-10-03, Onyx, Sonos mode): motorDet false on platter stop ✅ (16:11:19; an off/on pair at 16:07 during a record change); Sonos session end ✅ exactly 3 min after the stop (isConnectedToSonosGroup false, stream URLs cleared by event); typed writes ✅ with read-back and events for wirelessAudioDelay (enum), mute, autoplay and player:volume; player:volume tracks the Sonos group during a session (Doctor Biz; write 21→22→21 confirmed); changing wirelessAudioDelay restarts the session (~5 s dropout, URLs return with the same ports); an abandoned event queue expired within 14 min (HTTP 400 "Unknown queue id!"); UPnP streaming state → v2
 - Approved: Design sections 1–3: "Looks right" (2026-10-03)
 - Approved: Written spec: "let's build it. GO GO GO." (2026-10-03)
 - Approved: Plan + execution method: "Subagent-driven (Recommended)" (2026-10-03)
-- Compactions: 0
+- Compactions: 1
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -819,7 +820,7 @@ Publishing is outward-facing. Don't start this task until Doctor Biz says to pub
 - [ ] **Step 1: Write `.github/workflows/validate.yml`.** Trigger on `push`, `pull_request` and `workflow_dispatch`. Three jobs:
   - `hassfest`: `actions/checkout@v4`, then `home-assistant/actions/hassfest@master`.
   - `hacs`: `hacs/action@main` with `category: integration`.
-  - `tests`: `actions/checkout@v4`, `astral-sh/setup-uv` (the current major tag), then `uv sync` and `scripts/check`.
+  - `tests`: `actions/checkout@v4`, `astral-sh/setup-uv` (pinned to the v10.2.0 commit SHA), then `uv sync` and `scripts/check`.
 
 - [ ] **Step 2: Re-run the privacy guard on everything about to go public: the tree and every commit.** Run `uv run pytest tests/test_capture_fixtures.py -q` (PASS). The private search terms (the device's real addresses, network names and ids) never go in a tracked file, this plan included, and the guard itself must never print one — only file/commit names or a count. They live one per line in `privacy-terms.local.md` in the repo root, which `.gitignore`'s `*.local.md` rule keeps out of git. If that file is missing or empty, stop and ask Doctor Biz for the terms: `git grep` given no patterns prints nothing, which reads as a pass. Then:
   - `git check-ignore -q privacy-terms.local.md && test -s privacy-terms.local.md` must succeed.
