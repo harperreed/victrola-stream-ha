@@ -816,7 +816,11 @@ Publishing is outward-facing. Don't start this task until Doctor Biz says to pub
   - `hacs`: `hacs/action@main` with `category: integration`.
   - `tests`: `actions/checkout@v4`, `astral-sh/setup-uv` (the current major tag), then `uv sync` and `scripts/check`.
 
-- [ ] **Step 2: Re-run the privacy guard on everything about to go public.** Run `uv run pytest tests/test_capture_fixtures.py -q` (PASS). Then `git grep -nE '192\.168\.|RINCON_[0-9A-F]{12}|example-wifi' -- . ':!docs/superpowers'` must print nothing outside `.gitignore`d files.
+- [ ] **Step 2: Re-run the privacy guard on everything about to go public: the tree and every commit.** Run `uv run pytest tests/test_capture_fixtures.py -q` (PASS). The private search terms (the device's real addresses, network names and ids) never go in a tracked file, this plan included. They live one per line in `privacy-terms.local.md` in the repo root, which `.gitignore`'s `*.local.md` rule keeps out of git. If that file is missing or empty, stop and ask Doctor Biz for the terms: `git grep` given no patterns prints nothing, which reads as a pass. Then:
+  - `git check-ignore -q privacy-terms.local.md && test -s privacy-terms.local.md` must succeed.
+  - `git grep -nE -f privacy-terms.local.md $(git rev-list --all)` must print nothing. It searches every file of every commit, not just the tree.
+  - `git log --all --format=%B | grep -nE -f privacy-terms.local.md` must print nothing; commit messages get published too.
+  - A hit in history means rewriting history before Step 3 pushes it. That destroys commits, so it happens only on Doctor Biz's explicit go-ahead, recorded in the Now section; rerun this step afterwards.
 
 - [ ] **Step 3: Ask Doctor Biz** whether the repo should be public or private, then create it with the remote: `gh repo create harperreed/victrola-stream-ha --<public|private> --source . --description "Home Assistant integration for Victrola Stream turntables (HACS)"`. Push `main`, and add the topics `home-assistant`, `hacs`, `victrola`, `turntable`.
 
