@@ -28,6 +28,12 @@ reference: `../victrola-stream-go/docs/victrola-nsdk-api.md` and
   not a 200 as older docs implied. `NsdkClient` checks every reply for an NSDK
   `{"error": {...}}` body regardless of status, mapping a name ending in `invalidPath` to
   `NsdkInvalidPath`; a non-200 reply with no error body becomes `NsdkConnectionError`.
+- **An idle device drops to network standby, and its stream URLs read empty.** After
+  about 10 idle minutes (`settings:/system/maxIdleTime` = 600), `powermanager:target`
+  reads `networkStandby` (reason `idleTimer`) and every `adchls:serverUrl*` node reads
+  `""`, as in `tests/fixtures/get_data.json`. The API still answers. Treat an empty URL
+  as "no stream right now", not an error. How the device wakes is still to be checked
+  live.
 
 ## Working with Doctor Biz
 

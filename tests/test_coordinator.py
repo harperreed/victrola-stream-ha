@@ -3,13 +3,18 @@
 import asyncio
 import copy
 import json
+import logging
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
 from homeassistant.const import CONF_HOST
 from homeassistant.helpers.update_coordinator import UpdateFailed
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 from custom_components.victrola_stream.const import (
     DOMAIN,
@@ -18,6 +23,7 @@ from custom_components.victrola_stream.const import (
     NODE_RCA_DELAY,
     NODE_SERIAL,
     NODE_SET_DEFAULT_OUTPUT,
+    NODE_VOLUME,
     OUTPUT_TOGGLES,
     SPEAKERS_PATH,
     SUBSCRIBED_PATHS,
@@ -56,6 +62,7 @@ async def coordinator(hass, client, fake, monkeypatch):
         yield coordinator
     finally:
         await coordinator.async_stop_push()
+        await coordinator.async_shutdown()  # cancels a scheduled full read
 
 
 async def _start_push(coordinator: VictrolaCoordinator, fake: FakeVictrola) -> None:
@@ -98,6 +105,20 @@ def _polled_queue_ids(aioclient_mock) -> set[str]:
     }
 
 
+def _coordinator_errors(caplog) -> list[str]:
+    return [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == _COORDINATOR_MODULE and record.levelno >= logging.ERROR
+    ]
+
+
+# HA logs an outage once, on the way down, however many retries follow.
+_OFFLINE_ERROR = (
+    "Error requesting victrola_stream data: victrola stream device is offline"
+)
+
+
 async def test_full_read_builds_snapshot(coordinator, fake):
     fake.values[URL_PATHS["flac"]] = _string_value(_FLAC_URL)
 
@@ -138,11 +159,49 @@ async def test_full_read_failure_raises_update_failed(coordinator, fake):
         await coordinator._async_update_data()
 
 
-async def test_full_read_nsdk_error_raises_update_failed(coordinator, fake):
+async def test_missing_speaker_list_reads_as_no_speakers(coordinator, fake):
     del fake.rows[SPEAKERS_PATH]  # the fake answers its recorded invalidPath body
 
-    with pytest.raises(UpdateFailed):
-        await coordinator._async_update_data()
+    await coordinator.async_refresh()
+
+    assert coordinator.last_update_success
+    assert coordinator.data.speakers == ()
+    assert SPEAKERS_PATH in coordinator.data.missing
+
+    # An output change doesn't try to re-read a list the device lacks.
+    await coordinator.async_write(OUTPUT_TOGGLES["sonos"], NsdkValue.of_bool(False))
+
+    assert coordinator.data.value(OUTPUT_TOGGLES["sonos"]).as_bool() is False
+
+
+async def test_events_do_not_postpone_the_full_read(
+    hass, coordinator, fake, freezer, monkeypatch
+):
+    # The test loop runs in debug mode, which times each task step by the
+    # frozen clock, so every tick below would log a bogus slow-step warning.
+    monkeypatch.setattr(hass.loop, "slow_callback_duration", 3600)
+    await coordinator.async_refresh()
+    coordinator.async_add_listener(lambda: None)  # HA only schedules for listeners
+    # A Sonos group drops off. No event says so; only a full read can see it.
+    gone = coordinator.data.speakers[0]
+    body = copy.deepcopy(fake.rows[SPEAKERS_PATH])
+    body["rows"] = [row for row in body["rows"] if row.get("id") != gone.id]
+    body["rowsCount"] = len(body["rows"])
+    fake.rows[SPEAKERS_PATH] = body
+    event = NsdkEvent.from_json(_recorded_event(NODE_VOLUME))
+
+    for _ in range(4):  # an event every minute, well inside the 5-minute interval
+        freezer.tick(timedelta(minutes=1))
+        async_fire_time_changed(hass)
+        await coordinator._apply([event])
+
+    assert gone in coordinator.data.speakers  # 4 minutes: no full read due yet
+
+    freezer.tick(timedelta(minutes=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    assert gone not in coordinator.data.speakers
 
 
 async def test_push_applies_event(coordinator, fake):
@@ -190,7 +249,7 @@ async def test_apply_ignores_untracked_and_valueless_events(coordinator, fake):
     assert coordinator.data.values == before.values
 
 
-async def test_reconnect_rereads_urls(coordinator, fake):
+async def test_reconnect_rereads_urls(coordinator, fake, caplog):
     await _start_push(coordinator, fake)
 
     fake.offline = True
@@ -205,9 +264,12 @@ async def test_reconnect_rereads_urls(coordinator, fake):
             and coordinator.data.stream_url("flac") == _FLAC_URL_AFTER_REBOOT
         )
     )
+    assert _coordinator_errors(caplog) == [_OFFLINE_ERROR]
 
 
-async def test_reconnect_retries_a_failed_full_read(coordinator, fake, aioclient_mock):
+async def test_reconnect_retries_a_failed_full_read(
+    coordinator, fake, aioclient_mock, caplog
+):
     await _start_push(coordinator, fake)
     fake.offline = True
     await wait_for(lambda: not coordinator.last_update_success)
@@ -227,6 +289,7 @@ async def test_reconnect_retries_a_failed_full_read(coordinator, fake, aioclient
             and coordinator.data.stream_url("flac") == _FLAC_URL_AFTER_REBOOT
         )
     )
+    assert _coordinator_errors(caplog) == [_OFFLINE_ERROR]
 
 
 async def test_async_write_updates_snapshot_from_readback(coordinator, fake):

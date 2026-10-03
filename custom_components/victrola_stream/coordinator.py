@@ -32,6 +32,7 @@ from .nsdk import (
     NsdkConnectionError,
     NsdkError,
     NsdkEvent,
+    NsdkInvalidPath,
     NsdkRow,
     NsdkValue,
 )
@@ -121,7 +122,10 @@ class VictrolaCoordinator(DataUpdateCoordinator[VictrolaState]):
         """Read every identity and state node, plus the speaker list."""
         try:
             values, missing = await self.client.read_nodes(IDENTITY_PATHS + STATE_PATHS)
-            speakers = await self._read_speakers()
+            try:
+                speakers = await self._read_speakers()
+            except NsdkInvalidPath:  # this device has no speaker list
+                speakers, missing = (), missing | {SPEAKERS_PATH}
         except (NsdkError, NsdkConnectionError) as err:
             raise UpdateFailed(f"Error reading {self.client.host}: {err!r}") from err
         return VictrolaState(values=values, missing=missing, speakers=speakers)
@@ -151,7 +155,7 @@ class VictrolaCoordinator(DataUpdateCoordinator[VictrolaState]):
     async def async_write(self, path: str, value: NsdkValue) -> None:
         """Write a typed value; the snapshot takes the device's read-back."""
         readback = await self.client.set_typed(path, value)
-        self.async_set_updated_data(self.data.with_value(path, readback))
+        self._async_publish(self.data.with_value(path, readback))
         if path in _OUTPUT_TOGGLE_PATHS:
             await self._async_reread_speakers()
 
@@ -216,7 +220,7 @@ class VictrolaCoordinator(DataUpdateCoordinator[VictrolaState]):
             if event.value is not None:
                 state = state.with_value(event.path, event.value)
         if state is not self.data:
-            self.async_set_updated_data(state)
+            self._async_publish(state)
         if reread_speakers:
             await self._async_reread_speakers()
 
@@ -224,6 +228,20 @@ class VictrolaCoordinator(DataUpdateCoordinator[VictrolaState]):
         return _speakers_from_rows(await self.client.get_rows(SPEAKERS_PATH))
 
     async def _async_reread_speakers(self) -> None:
+        if SPEAKERS_PATH in self.data.missing:
+            return  # this device has no speaker list; the next full read checks again
         speakers = await self._read_speakers()
         # Take self.data only now: events may have changed it during the read.
-        self.async_set_updated_data(self.data.with_speakers(speakers))
+        self._async_publish(self.data.with_speakers(speakers))
+
+    @callback
+    def _async_publish(self, state: VictrolaState) -> None:
+        """Set the snapshot and notify listeners; leave the full-read timer alone.
+
+        async_set_updated_data would push the 5-minute full read back on every
+        call, so steady events (Wi-Fi RSSI, say) would postpone it forever, and
+        changes that send no event, like the speaker list, would go unseen.
+        """
+        self.data = state
+        self.last_update_success = True  # as async_set_updated_data would set it
+        self.async_update_listeners()
