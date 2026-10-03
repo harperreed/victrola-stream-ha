@@ -197,12 +197,14 @@ class VictrolaCoordinator(DataUpdateCoordinator[VictrolaState]):
                     )
                 while True:
                     events = await self.client.poll(queue, POLL_TIMEOUT_S)
-                    # The pass has now proven it can poll, not just read: a
-                    # failure from here starts a fresh backoff, rather than
-                    # inheriting whatever a prior pass grew it to.
-                    backoff = BACKOFF_START_S
                     if events:
                         await self._apply(events)
+                    # The pass has now proven it can poll AND apply, not just
+                    # read: a failure from here starts a fresh backoff,
+                    # rather than inheriting whatever a prior pass grew it
+                    # to. A failure inside _apply (e.g. a speaker re-read)
+                    # must not reset backoff either, so this sits after it.
+                    backoff = BACKOFF_START_S
             except asyncio.CancelledError:
                 raise
             except Exception as err:  # any failure, expected or not, retries

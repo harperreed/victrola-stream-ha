@@ -36,8 +36,8 @@ class FakeVictrola:
     Built only from recorded fixtures and verified behaviour, never invented
     replies. Registers side effects for getData, getRows and setData on the
     given `aioclient_mock` (Task 4 adds the queue endpoints). The fault hooks
-    (offline, poll_offline, raw_replies, push_raw_event, poll_fault) send
-    whatever a test asks for instead.
+    (offline, poll_offline, raw_replies, push_raw_event, poll_fault,
+    flaky_rows_paths) send whatever a test asks for instead.
     """
 
     def __init__(
@@ -46,6 +46,10 @@ class FakeVictrola:
         self.host = host
         self.values: dict[str, Any] = _load_fixture("get_data.json")
         self.rows: dict[str, Any] = _load_fixture("get_rows.json")
+        # Paths whose getRows calls alternate success/failure (1st, 3rd, ...
+        # succeed; 2nd, 4th, ... fail). See _get_rows.
+        self.flaky_rows_paths: set[str] = set()
+        self._rows_call_count: dict[str, int] = {}
         self.offline = False
         # Only pollQueue fails; getData/getRows/setData/modifyQueue keep
         # working, as if the long-poll connection alone were resetting.
@@ -98,6 +102,16 @@ class FakeVictrola:
     ) -> AiohttpClientMockResponse:
         self._check_online()
         path = url.query["path"]
+        if path in self.flaky_rows_paths:
+            self._rows_call_count[path] = self._rows_call_count.get(path, 0) + 1
+            if self._rows_call_count[path] % 2 == 0:
+                # A malformed reply (a list, not an object with "rows"): the
+                # same shape fault as test_get_rows_wrong_shape_raises_connection_error,
+                # but only on every second call. getRows is one call site; a
+                # pass's own full read and an event-triggered re-read send the
+                # identical request, so this is the only way to make one keep
+                # succeeding while the other keeps failing.
+                return AiohttpClientMockResponse(method=method, url=url, json=[])
         if path in self.rows:
             return AiohttpClientMockResponse(
                 method=method, url=url, json=self.rows[path]

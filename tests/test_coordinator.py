@@ -385,6 +385,34 @@ async def test_backoff_grows_when_poll_keeps_failing_after_a_good_read(
     assert sleeps[:4] == [0.01, 0.02, 0.04, 0.08]
 
 
+async def test_backoff_grows_when_apply_keeps_failing_after_a_good_poll(
+    coordinator, fake, monkeypatch
+):
+    # Poll keeps succeeding and delivering an output-toggle event every
+    # pass; the speaker re-read that event triggers keeps failing. A reset
+    # placed right after poll (rather than after poll *and* apply) would
+    # reset to START here too, even though the pass never actually finishes
+    # applying cleanly -- the same symptom P1 targets, via _apply instead of
+    # poll.
+    sleeps: list[float] = []
+    monkeypatch.setattr(f"{_COORDINATOR_MODULE}.asyncio", _FastSleepAsyncio(sleeps))
+    fake.flaky_rows_paths.add(SPEAKERS_PATH)
+
+    coordinator.async_start_push()
+
+    # Each pass needs its own event: a new queue is subscribed per retry,
+    # and a push only reaches queues that already exist.
+    seen_queues = 0
+    for _ in range(4):
+        await wait_for(lambda seen=seen_queues: len(fake.created_queue_ids) > seen)
+        seen_queues = len(fake.created_queue_ids)
+        fake.push_event(OUTPUT_TOGGLES["sonos"], {"type": "bool_", "bool_": True})
+
+    await wait_for(lambda: len(sleeps) >= 4)
+
+    assert sleeps[:4] == [0.01, 0.02, 0.04, 0.08]
+
+
 async def test_push_loop_survives_an_unexpected_error(
     coordinator, fake, aioclient_mock, caplog
 ):
