@@ -1,0 +1,373 @@
+{
+  "victrola:ui/speakerSelection": {
+    "roles": {
+      "containerType": "none",
+      "path": "victrola:ui/speakerSelection",
+      "timestamp": 1791034878815,
+      "title": "Zone 10",
+      "type": "container"
+    },
+    "rows": [
+      {
+        "title": "<div style=\"margin: -32px 0px 0px 0px\">DEFAULT SPEAKER</div>",
+        "type": "header"
+      },
+      {
+        "description": "Select default speaker to begin playback. Toggle autoplay on device homepage to adjust playback method.<br/><br/><b>Autoplay Enabled</b> (default) \u2013 Playback will begin on default speaker automatically when playing a record.<br/><b>Autoplay Disabled</b> \u2013 Press and hold knob for 1 second to start playback session to default speaker or use Quickplay feature on device homepage to begin a session to any speaker or zone.",
+        "type": "headerDescription"
+      },
+      {
+        "defaultValue": {
+          "bool_": true,
+          "type": "bool_"
+        },
+        "isWebclientCardGroupSeparator": {
+          "bool_": true,
+          "type": "bool_"
+        },
+        "modifiable": true,
+        "path": "settings:/victrola/sonosEnabled",
+        "timestamp": 1791005177787,
+        "title": "SONOS",
+        "type": "value",
+        "value": {
+          "bool_": true,
+          "type": "bool_"
+        }
+      },
+      {
+        "id": "RINCON_00000000000101400",
+        "path": "victrola:sonosGroups/RINCON_00000000000101400:2398234320",
+        "timestamp": 1791005178047,
+        "title": "Zone 1",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000000101400",
+            "groupName": "Zone 1",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.2",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000000101400:2398234320"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000000201400",
+        "path": "victrola:sonosGroups/RINCON_00000000000201400:1914508269",
+        "timestamp": 1791005178049,
+        "title": "Zone 2",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000000201400",
+            "groupName": "Zone 2",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.3",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000000201400:1914508269"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000000301400",
+        "path": "victrola:sonosGroups/RINCON_00000000000301400:1102722623",
+        "timestamp": 1791005178051,
+        "title": "Zone 3",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000000301400",
+            "groupName": "Zone 3",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.4",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000000301400:1102722623"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000000401400",
+        "path": "victrola:sonosGroups/RINCON_00000000000401400:572",
+        "timestamp": 1791005178226,
+        "title": "Zone 4",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000000401400",
+            "groupName": "Zone 4",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.5",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000000401400:572"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000000501400",
+        "path": "victrola:sonosGroups/RINCON_00000000000501400:192095298",
+        "timestamp": 1791005178228,
+        "title": "Zone 5",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000000501400",
+            "groupName": "Zone 5",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.6",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000000501400:192095298"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000000601400",
+        "path": "victrola:sonosGroups/RINCON_00000000000601400:2393296897",
+        "timestamp": 1791005178323,
+        "title": "Zone 6",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000000601400",
+            "groupName": "Zone 6",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.7",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000000601400:2393296897"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000000701400",
+        "path": "victrola:sonosGroups/RINCON_00000000000701400:3216603978",
+        "timestamp": 1791005178376,
+        "title": "Zone 7",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000000701400",
+            "groupName": "Zone 7",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.8",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000000701400:3216603978"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000000801400",
+        "path": "victrola:sonosGroups/RINCON_00000000000801400:4227613861",
+        "timestamp": 1791019338607,
+        "title": "Zone 8",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000000801400",
+            "groupName": "Zone 8",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.9",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000000801400:4227613861"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000000901400",
+        "path": "victrola:sonosGroups/RINCON_00000000000901400:240",
+        "timestamp": 1791029061494,
+        "title": "Zone 9",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000000901400",
+            "groupName": "Zone 9",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.11",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000000901400:240"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000001001400",
+        "path": "victrola:sonosGroups/RINCON_00000000001001400:4203137164",
+        "preferred": true,
+        "timestamp": 1791032404228,
+        "title": "Zone 10",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000001001400",
+            "groupName": "Zone 10",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.12",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000001001400:4203137164"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000001101400",
+        "path": "victrola:sonosGroups/RINCON_00000000001101400:74",
+        "timestamp": 1791034434584,
+        "title": "Zone 11",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000001101400",
+            "groupName": "Zone 11",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.13",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000001101400:74"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000001201400",
+        "path": "victrola:sonosGroups/RINCON_00000000001201400:511",
+        "timestamp": 1791034438054,
+        "title": "Zone 12",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000001201400",
+            "groupName": "Zone 12",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.14",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000001201400:511"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "id": "RINCON_00000000001301400",
+        "path": "victrola:sonosGroups/RINCON_00000000001301400:152",
+        "timestamp": 1791034878759,
+        "title": "Zone 13",
+        "type": "victrolaOutputSonos",
+        "value": {
+          "sonosGroup": {
+            "groupId": "RINCON_00000000001301400",
+            "groupName": "Zone 13",
+            "householdId": "Sonos_EXAMPLE",
+            "leader": {
+              "host": "192.0.2.15",
+              "path": "/websocket/api",
+              "port": 1443
+            },
+            "sonosGroupId": "RINCON_00000000001301400:152"
+          },
+          "type": "sonosGroup"
+        }
+      },
+      {
+        "defaultValue": {
+          "bool_": false,
+          "type": "bool_"
+        },
+        "isWebclientCardGroupSeparator": {
+          "bool_": true,
+          "type": "bool_"
+        },
+        "modifiable": true,
+        "path": "settings:/victrola/upnpEnabled",
+        "timestamp": 1791003065913,
+        "title": "UPnP",
+        "type": "value",
+        "value": {
+          "bool_": false,
+          "type": "bool_"
+        }
+      },
+      {
+        "defaultValue": {
+          "bool_": false,
+          "type": "bool_"
+        },
+        "isWebclientCardGroupSeparator": {
+          "bool_": true,
+          "type": "bool_"
+        },
+        "modifiable": true,
+        "path": "settings:/victrola/roonEnabled",
+        "timestamp": 1791001814410,
+        "title": "Roon",
+        "type": "value",
+        "value": {
+          "bool_": false,
+          "type": "bool_"
+        }
+      },
+      {
+        "defaultValue": {
+          "bool_": false,
+          "type": "bool_"
+        },
+        "isWebclientCardGroupSeparator": {
+          "bool_": true,
+          "type": "bool_"
+        },
+        "modifiable": true,
+        "path": "settings:/victrola/bluetoothEnabled",
+        "timestamp": 1791000645233,
+        "title": "Bluetooth",
+        "type": "value",
+        "value": {
+          "bool_": false,
+          "type": "bool_"
+        }
+      }
+    ],
+    "rowsCount": 19,
+    "rowsVersion": 0
+  }
+}

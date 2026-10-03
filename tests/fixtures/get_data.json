@@ -1,0 +1,250 @@
+{
+  "adchls:serverUrl": [
+    {
+      "string_": "",
+      "type": "string_"
+    }
+  ],
+  "adchls:serverUrl/flac": [
+    {
+      "string_": "",
+      "type": "string_"
+    }
+  ],
+  "adchls:serverUrl/mp3": [
+    {
+      "string_": "",
+      "type": "string_"
+    }
+  ],
+  "hostlink:hostFirmwareVersion": [
+    {
+      "string_": "STM32F030C8_1.11",
+      "type": "string_"
+    }
+  ],
+  "hostlink:motorDet": [
+    {
+      "bool_": false,
+      "type": "bool_"
+    }
+  ],
+  "hostlink:sonosConnected": [
+    {}
+  ],
+  "network:info": [
+    {
+      "networkInfo": {
+        "dns": [
+          {
+            "ip": "192.0.2.1",
+            "protocol": "ipv4",
+            "scope": "global_"
+          }
+        ],
+        "gateways": [
+          {
+            "ip": "192.0.2.1",
+            "protocol": "ipv4"
+          }
+        ],
+        "softAp": {
+          "name": "softap",
+          "state": "down"
+        },
+        "state": "up",
+        "wired": {
+          "cableConnected": false,
+          "connectingStatus": "idle",
+          "mac": "02:00:00:00:00:01",
+          "name": "eth0",
+          "state": "down"
+        },
+        "wireless": {
+          "addresses": [
+            {
+              "dhcp": true,
+              "ip": "192.0.2.10",
+              "prefix": 24,
+              "protocol": "ipv4",
+              "scope": "global_"
+            },
+            {
+              "dhcp": true,
+              "ip": "2001:db8::1",
+              "prefix": 64,
+              "protocol": "ipv6",
+              "scope": "global_"
+            }
+          ],
+          "bssid": "02:00:00:00:00:02",
+          "channel": 100,
+          "connectingStatus": "idle",
+          "credentialsSuspect": false,
+          "encryption": "wpa_psk",
+          "frequency": 5500,
+          "mac": "02:00:00:00:00:03",
+          "name": "wlan0",
+          "signalLevel": -62,
+          "ssid": "example-wifi",
+          "state": "up",
+          "wps": {
+            "status": "idle"
+          }
+        },
+        "wirelessNetworks": [
+          {
+            "credentialsSuspect": false,
+            "ssid": "example-wifi"
+          }
+        ]
+      },
+      "type": "networkInfo"
+    }
+  ],
+  "player:volume": [
+    {
+      "i32_": 0,
+      "type": "i32_"
+    }
+  ],
+  "powermanager:target": [
+    {
+      "powerTarget": {
+        "nextReason": "none",
+        "nextTarget": "none",
+        "reason": "idleTimer",
+        "target": "networkStandby"
+      },
+      "type": "powerTarget"
+    }
+  ],
+  "settings:/adchls/dacDelay": [
+    {
+      "i32_": 0,
+      "type": "i32_"
+    }
+  ],
+  "settings:/adchls/dacMode": [
+    {
+      "adchlsDACMode": "simultaneous",
+      "type": "adchlsDACMode"
+    }
+  ],
+  "settings:/adchls/fixedVolume": [
+    {
+      "bool_": true,
+      "type": "bool_"
+    }
+  ],
+  "settings:/deviceName": [
+    {
+      "string_": "Record Player",
+      "type": "string_"
+    }
+  ],
+  "settings:/mediaPlayer/mute": [
+    {
+      "bool_": false,
+      "type": "bool_"
+    }
+  ],
+  "settings:/system/manufacturer": [
+    {
+      "string_": "Victrola",
+      "type": "string_"
+    }
+  ],
+  "settings:/system/primaryMacAddress": [
+    {
+      "string_": "02:00:00:00:00:01",
+      "type": "string_"
+    }
+  ],
+  "settings:/system/productName": [
+    {
+      "string_": "Victrola Stream",
+      "type": "string_"
+    }
+  ],
+  "settings:/system/serialNumber": [
+    {
+      "string_": "00000000-0000-4000-8000-000000000001",
+      "type": "string_"
+    }
+  ],
+  "settings:/version": [
+    {
+      "string_": "0.43.179.0x2aa3460",
+      "type": "string_"
+    }
+  ],
+  "settings:/victrola/autoplay": [
+    {
+      "bool_": true,
+      "type": "bool_"
+    }
+  ],
+  "settings:/victrola/bluetoothEnabled": [
+    {
+      "bool_": false,
+      "type": "bool_"
+    }
+  ],
+  "settings:/victrola/doesNotExist": {
+    "error": {
+      "actionReply": {},
+      "message": "Node at path 'settings:/victrola/doesNotExist' does not exist",
+      "name": "CMAbstractWorker::invalidPath",
+      "title": "Error"
+    }
+  },
+  "settings:/victrola/forceLowBitrate": [
+    {
+      "forceLowBitrate": "losslessQuality",
+      "type": "forceLowBitrate"
+    }
+  ],
+  "settings:/victrola/lightBrightness": [
+    {
+      "i32_": 7,
+      "type": "i32_"
+    }
+  ],
+  "settings:/victrola/roonEnabled": [
+    {
+      "bool_": false,
+      "type": "bool_"
+    }
+  ],
+  "settings:/victrola/sonosEnabled": [
+    {
+      "bool_": true,
+      "type": "bool_"
+    }
+  ],
+  "settings:/victrola/upnpEnabled": [
+    {
+      "bool_": false,
+      "type": "bool_"
+    }
+  ],
+  "settings:/victrola/wirelessAudioDelay": [
+    {
+      "adchlsLatency": "high",
+      "type": "adchlsLatency"
+    }
+  ],
+  "victrola:UpnpState": [
+    {
+      "pstUpnpState": "notPlaying",
+      "type": "pstUpnpState"
+    }
+  ],
+  "victrola:isConnectedToSonosGroup": [
+    {
+      "bool_": false,
+      "type": "bool_"
+    }
+  ]
+}

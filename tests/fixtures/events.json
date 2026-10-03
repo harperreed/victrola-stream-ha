@@ -1,0 +1,25 @@
+[
+  [],
+  [
+    {
+      "itemType": "update",
+      "itemValue": {
+        "i32_": 0,
+        "type": "i32_"
+      },
+      "path": "player:volume",
+      "rowsEvents": []
+    }
+  ],
+  [
+    {
+      "itemType": "update",
+      "itemValue": {
+        "bool_": true,
+        "type": "bool_"
+      },
+      "path": "hostlink:motorDet",
+      "rowsEvents": []
+    }
+  ]
+]
