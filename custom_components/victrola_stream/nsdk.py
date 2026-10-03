@@ -174,6 +174,8 @@ class NsdkClient:
 
     async def get_value(self, path: str) -> NsdkValue:
         body = await self._get("/api/getData", {"path": path, "roles": "value"})
+        if not isinstance(body, list):
+            raise NsdkConnectionError(f"getData {path}: expected a list, got {body!r}")
         return NsdkValue.from_json(body[0]) if body else EMPTY
 
     async def read_nodes(
@@ -181,8 +183,9 @@ class NsdkClient:
     ) -> tuple[dict[str, NsdkValue], frozenset[str]]:
         """Read many nodes concurrently.
 
-        Returns the values plus the set of paths that answered invalidPath.
-        Any other failure (a transport error) raises NsdkConnectionError.
+        Returns the values plus the set of paths that answered invalidPath. Any
+        other failure (a transport error) cancels the remaining reads and
+        raises that one failure directly — never an ExceptionGroup.
         """
 
         async def read_one(path: str) -> tuple[str, NsdkValue | None]:
@@ -191,7 +194,16 @@ class NsdkClient:
             except NsdkInvalidPath:
                 return path, None
 
-        results = await asyncio.gather(*(read_one(path) for path in paths))
+        try:
+            async with asyncio.TaskGroup() as group:
+                tasks = [group.create_task(read_one(path)) for path in paths]
+        except* Exception as eg:
+            # TaskGroup cancels the other reads and wraps whatever failed in
+            # an ExceptionGroup; unwrap it so callers only ever see the
+            # NsdkError/NsdkConnectionError that get_value can raise.
+            raise eg.exceptions[0] from eg
+
+        results = [task.result() for task in tasks]
         values = {path: value for path, value in results if value is not None}
         missing = frozenset(path for path, value in results if value is None)
         return values, missing
@@ -209,7 +221,11 @@ class NsdkClient:
                 "type": "structure",
             },
         )
-        return [NsdkRow.from_json(row) for row in body.get("rows", [])]
+        if not isinstance(body, dict) or not isinstance(body.get("rows"), list):
+            raise NsdkConnectionError(
+                f"getRows {path}: expected an object with 'rows', got {body!r}"
+            )
+        return [NsdkRow.from_json(row) for row in body["rows"]]
 
     async def set_typed(self, path: str, value: NsdkValue) -> NsdkValue:
         """Write a typed value, then read the node back to confirm it took.
@@ -257,5 +273,9 @@ class NsdkClient:
                 if resp.status != 200:
                     raise NsdkConnectionError(f"HTTP {resp.status}: {body!r}")
                 return body
-        except (aiohttp.ClientError, TimeoutError) as err:
+        except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+            # ValueError covers a JSON-decode failure (stdlib json.JSONDecodeError
+            # and orjson's, both subclass it): a reply the client cannot parse is
+            # the same "not a valid NSDK reply" bucket as a non-200 with no error
+            # body. Callers must only ever see NsdkError or NsdkConnectionError.
             raise NsdkConnectionError(str(err)) from err

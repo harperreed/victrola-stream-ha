@@ -39,6 +39,7 @@ class FakeVictrola:
         self.ignore_writes: set[str] = set()
         self.reject_writes: set[str] = set()
         self.set_calls: list[dict[str, Any]] = []
+        self.raw_replies: dict[str, str] = {}
 
         base = f"http://{host}"
         aioclient_mock.get(f"{base}/api/getData", side_effect=self._get_data)
@@ -50,6 +51,10 @@ class FakeVictrola:
     ) -> AiohttpClientMockResponse:
         self._check_online()
         path = url.query["path"]
+        if path in self.raw_replies:
+            return AiohttpClientMockResponse(
+                method=method, url=url, text=self.raw_replies[path]
+            )
         if path in self.values and path != _INVALID_PATH_KEY:
             return AiohttpClientMockResponse(
                 method=method, url=url, json=self.values[path]

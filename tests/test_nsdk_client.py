@@ -61,6 +61,36 @@ async def test_offline_raises_connection_error(client, fake):
         await client.get_value(const.NODE_AUTOPLAY)
 
 
+async def test_get_value_malformed_json_raises_connection_error(client, fake):
+    fake.raw_replies[const.NODE_AUTOPLAY] = "not json"
+
+    with pytest.raises(NsdkConnectionError):
+        await client.get_value(const.NODE_AUTOPLAY)
+
+
+async def test_get_value_wrong_shape_raises_connection_error(client, fake):
+    fake.values[const.NODE_AUTOPLAY] = {}  # object, not a list, and no "error" key
+
+    with pytest.raises(NsdkConnectionError):
+        await client.get_value(const.NODE_AUTOPLAY)
+
+
+async def test_get_rows_wrong_shape_raises_connection_error(client, fake):
+    fake.rows[const.SPEAKERS_PATH] = []  # a list, not an object with "rows"
+
+    with pytest.raises(NsdkConnectionError):
+        await client.get_rows(const.SPEAKERS_PATH)
+
+
+async def test_read_nodes_transport_failure_raises_connection_error(client, fake):
+    fake.offline = True
+
+    with pytest.raises(NsdkConnectionError) as exc_info:
+        await client.read_nodes([const.NODE_AUTOPLAY, const.NODE_KNOB_BRIGHTNESS])
+
+    assert not isinstance(exc_info.value, ExceptionGroup)
+
+
 async def test_set_typed_sends_typed_body_and_reads_back(client, fake):
     got = await client.set_typed(
         "settings:/victrola/lightBrightness", NsdkValue.of_int(17)
