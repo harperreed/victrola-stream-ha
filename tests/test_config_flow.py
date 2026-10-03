@@ -1,6 +1,8 @@
 # ABOUTME: Tests for VictrolaConfigFlow: user, zeroconf and reconfigure steps.
 # ABOUTME: Runs against FakeVictrola's recorded payloads; nothing of ours is mocked.
+import json
 from ipaddress import ip_address
+from pathlib import Path
 from typing import Any
 
 from homeassistant.config_entries import SOURCE_USER, SOURCE_ZEROCONF
@@ -19,6 +21,11 @@ from tests.fake_device import FakeVictrola
 
 # A serial that is never the fixture's, for the "wrong device" reconfigure case.
 _OTHER_SERIAL = "00000000-0000-4000-8000-000000000099"
+_INTEGRATION_DIR = Path(__file__).resolve().parent.parent / "custom_components" / DOMAIN
+
+
+def _strings() -> dict[str, Any]:
+    return json.loads((_INTEGRATION_DIR / "strings.json").read_text())
 
 
 def _serial(fake: FakeVictrola) -> str:
@@ -135,6 +142,40 @@ async def test_zeroconf_flow_creates_entry(hass, fake):
 
     assert await hass.config_entries.async_unload(result["result"].entry_id)
     await hass.async_block_till_done()
+
+
+async def test_discovered_flow_title_names_the_turntable(hass, fake):
+    await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_ZEROCONF}, data=_zeroconf_info(fake)
+    )
+
+    (flow,) = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    placeholders = flow["context"]["title_placeholders"]
+    title = _strings()["config"]["flow_title"].format(**placeholders)
+    assert title == _device_name(fake)
+
+
+async def test_user_flow_aborts_while_a_discovery_is_pending(hass, fake):
+    await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_ZEROCONF}, data=_zeroconf_info(fake)
+    )
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: fake.host}
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_in_progress"
+    assert result["reason"] in _strings()["config"]["abort"]
+
+
+def test_english_translation_mirrors_strings():
+    strings = (_INTEGRATION_DIR / "strings.json").read_bytes()
+
+    assert (_INTEGRATION_DIR / "translations" / "en.json").read_bytes() == strings
 
 
 async def test_zeroconf_updates_host_of_existing_entry(hass, fake):

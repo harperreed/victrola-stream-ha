@@ -1,5 +1,6 @@
 {
   "config": {
+    "flow_title": "{name}",
     "step": {
       "user": {
         "title": "Connect to your Victrola Stream",
@@ -30,6 +31,7 @@
     },
     "abort": {
       "already_configured": "Device is already configured.",
+      "already_in_progress": "This turntable is already being set up. Finish that setup first.",
       "not_victrola": "This device is not a Victrola Stream.",
       "cannot_connect": "Failed to connect to the device.",
       "wrong_device": "This host belongs to a different Victrola Stream device.",
