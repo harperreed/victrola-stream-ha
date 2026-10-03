@@ -65,6 +65,44 @@
       "streaming": {
         "name": "Streaming"
       }
+    },
+    "switch": {
+      "mute": {
+        "name": "Mute"
+      },
+      "autoplay": {
+        "name": "Autoplay"
+      },
+      "rca_fixed_volume": {
+        "name": "RCA fixed volume"
+      }
+    },
+    "number": {
+      "volume": {
+        "name": "Volume"
+      },
+      "knob_brightness": {
+        "name": "Knob brightness"
+      },
+      "rca_delay": {
+        "name": "RCA delay"
+      }
+    },
+    "button": {
+      "restart": {
+        "name": "Restart"
+      }
+    }
+  },
+  "exceptions": {
+    "write_rejected": {
+      "message": "The turntable rejected the change."
+    },
+    "device_unreachable": {
+      "message": "Could not reach the turntable."
+    },
+    "device_error": {
+      "message": "The turntable returned an error: {error}"
     }
   }
 }

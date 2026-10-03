@@ -2,9 +2,12 @@
 # ABOUTME: Entities read only the coordinator's VictrolaState; one source of truth.
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from typing import Any
 
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -19,6 +22,7 @@ from .const import (
     NODE_SERIAL,
 )
 from .coordinator import VictrolaCoordinator, VictrolaState
+from .nsdk import NsdkConnectionError, NsdkError, NsdkValue, NsdkWriteRejected
 
 
 def device_info(state: VictrolaState, host: str) -> DeviceInfo:
@@ -63,6 +67,31 @@ class VictrolaEntityDescriptionMixin:
         return self.node is None or self.node not in state.missing
 
 
+@asynccontextmanager
+async def _translate_client_errors() -> AsyncIterator[None]:
+    """Map the NSDK client's errors to a translated HomeAssistantError.
+
+    NsdkWriteRejected -> write_rejected, NsdkConnectionError ->
+    device_unreachable, any other NsdkError -> device_error.
+    """
+    try:
+        yield
+    except NsdkWriteRejected as err:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN, translation_key="write_rejected"
+        ) from err
+    except NsdkConnectionError as err:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN, translation_key="device_unreachable"
+        ) from err
+    except NsdkError as err:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="device_error",
+            translation_placeholders={"error": str(err)},
+        ) from err
+
+
 class VictrolaEntity(CoordinatorEntity[VictrolaCoordinator]):
     """Base for every Victrola Stream entity: device card, id and availability."""
 
@@ -86,3 +115,21 @@ class VictrolaEntity(CoordinatorEntity[VictrolaCoordinator]):
         return super().available and self.entity_description.available_fn(
             self.coordinator.data
         )
+
+    async def _async_write(self, path: str, value: NsdkValue) -> None:
+        """Write a typed value through the coordinator; never optimistic.
+
+        The entity's state only moves once the coordinator publishes the
+        device's read-back.
+        """
+        async with _translate_client_errors():
+            await self.coordinator.async_write(path, value)
+
+    async def _async_activate(
+        self, path: str, value: Any, *, reread_speakers: bool = False
+    ) -> None:
+        """Fire an action node through the coordinator."""
+        async with _translate_client_errors():
+            await self.coordinator.async_activate(
+                path, value, reread_speakers=reread_speakers
+            )

@@ -9,8 +9,14 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .coordinator import VictrolaConfigEntry, VictrolaCoordinator
 from .nsdk import NsdkClient
 
-# Tasks 8 and 9 add the switch/number/button/select platforms.
-PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
+# Task 9 adds the select platform.
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.NUMBER,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: VictrolaConfigEntry) -> bool:
