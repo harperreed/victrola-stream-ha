@@ -31,10 +31,15 @@ _POWER_STATES = {
 
 
 def _wifi_signal(state: VictrolaState) -> int | None:
-    """The latest network:wirelessRssi event, else network:info's signalLevel."""
-    rssi = state.value(NODE_RSSI_EVENT)
-    if not rssi.is_empty:
-        return rssi.as_int()
+    """The latest network:wirelessRssi event, else network:info's signalLevel.
+
+    An event that doesn't hold an int (a double_, say) falls back too.
+    """
+    rssi = state.value(NODE_RSSI_EVENT).as_int()
+    # as_int hands back an int-typed value's payload unchecked, and the
+    # device's JSON is not trusted, so check that it really is an int.
+    if isinstance(rssi, int):
+        return rssi
     network = state.value(NODE_NETWORK).payload
     if not isinstance(network, dict):
         return None

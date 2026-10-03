@@ -11,8 +11,10 @@ from custom_components.victrola_stream.const import (
     NODE_MCU_FIRMWARE,
     NODE_NETWORK,
     NODE_POWER,
+    NODE_RSSI_EVENT,
     URL_PATHS,
 )
+from custom_components.victrola_stream.nsdk import NsdkValue
 from tests.conftest import entity_id_for, fixture_serial, setup_entry, wait_for
 
 # The device's recorded Wi-Fi signal (tests/fixtures/get_data.json, network:info).
@@ -82,6 +84,39 @@ async def test_sensors_report_online_values(hass, fake):
 
     assert power_state.state == "online"
     assert stream_url_flac.state.endswith("/stream.flac")
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_wifi_signal_follows_an_rssi_event(hass, fake):
+    # The device sent no RSSI event in a ~65 s live probe, so its shape is
+    # unverified; an i32_ in dBm is what this sensor expects.
+    entry = await setup_entry(hass, fake)
+    entity_id = entity_id_for(hass, "sensor", fixture_serial(fake), "wifi_signal")
+    await wait_for(lambda: fake.subscribe_calls)  # the push loop has subscribed
+
+    fake.push_event(NODE_RSSI_EVENT, {"type": "i32_", "i32_": -55})
+
+    await wait_for(lambda: hass.states.get(entity_id).state == "-55")
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_wifi_signal_falls_back_when_an_rssi_event_is_not_an_int(hass, fake):
+    entry = await setup_entry(hass, fake)
+    entity_id = entity_id_for(hass, "sensor", fixture_serial(fake), "wifi_signal")
+    await wait_for(lambda: fake.subscribe_calls)  # the push loop has subscribed
+    rssi = {"type": "double_", "double_": -55.0}
+
+    fake.push_event(NODE_RSSI_EVENT, rssi)
+
+    coordinator = entry.runtime_data
+    await wait_for(
+        lambda: coordinator.data.value(NODE_RSSI_EVENT) == NsdkValue.from_json(rssi)
+    )
+    assert hass.states.get(entity_id).state == _FIXTURE_SIGNAL_LEVEL
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
