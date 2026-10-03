@@ -173,7 +173,7 @@ There's one HA device per turntable. Its name comes from `settings:/deviceName`.
 
 | Platform | Name | Node(s) | Category | Status |
 |---|---|---|---|---|
-| binary_sensor | Platter spinning (`running`) | `hostlink:motorDet` | — | read ✅, false ❓ |
+| binary_sensor | Platter spinning (`running`) | `hostlink:motorDet` | — | read ✅, false ✅ |
 | binary_sensor | Streaming | Sonos mode: `victrola:isConnectedToSonosGroup`; other modes: unavailable (UPnP streaming state is v2) | — | Sonos ✅, end ✅ |
 | number | Volume (0–100) | `player:volume`; always in UPnP/Bluetooth, in Sonos mode only while `isConnectedToSonosGroup` is true | — | UPnP ✅, Bluetooth ❓, Sonos ✅ |
 | switch | Mute | `settings:/mediaPlayer/mute` | — | read ✅, typed write ❓ |
