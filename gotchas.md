@@ -34,6 +34,47 @@ reference: `../victrola-stream-go/docs/victrola-nsdk-api.md` and
   `""`, as in `tests/fixtures/get_data.json`. The API still answers. Treat an empty URL
   as "no stream right now", not an error. How the device wakes is still to be checked
   live.
+- **An unknown or expired queue id answers HTTP 400 in plain text, not an NSDK error
+  body.** Live probe 2026-10-03: `GET /api/event/pollQueue?queueId={00000000-0000-0000-
+  0000-000000000000}&timeout=1` (a never-issued id) returned `400 Bad Request`,
+  `Content-Type: text/plain`, body `Unknown queue id!` — no `{"error": {...}}` object at
+  all. `NsdkClient` still only ever raises `NsdkConnectionError` for it: `resp.json()`
+  fails to parse the non-JSON body (aiohttp's `ContentTypeError` for real, a
+  `JSONDecodeError` against the fake), and both land in `_send`'s existing catch-all —
+  no code change needed. `tests/fake_device.py`'s `_poll_queue` now returns this real
+  shape (previously an UNVERIFIED placeholder `{"error": {"name": "queueNotFound",
+  ...}}`), and `tests/test_nsdk_events.py`'s matching test now expects
+  `NsdkConnectionError`, not `NsdkError` (it was asserting the placeholder's made-up
+  shape, not the device's real one).
+- **`network:wirelessRssi` pushed zero events over ~65 s when idle.** Live probe
+  2026-10-03: subscribed to `network:wirelessRssi` alone and polled `timeout=5` for
+  13 cycles (~65 s) with the device stationary on a stable Wi-Fi link; no event arrived.
+  RSSI pushes are evidently change- or heartbeat-triggered, not continuous, so
+  subscribing to it alongside the rest of `SUBSCRIBED_PATHS` is not a flood risk under
+  normal conditions. A noisier radio environment or a longer sample could still see one;
+  this one didn't.
+
+## Live (e2e) testing
+
+- **phacc's `pytest_runtest_setup` re-disables real sockets before every test;
+  `socket_allow_hosts` alone cannot undo that.** `pytest_homeassistant_custom_component`
+  0.13.367 (plugins.py ~line 195) runs for every test and calls
+  `pytest_socket.socket_allow_hosts(["127.0.0.1"])` then
+  `pytest_socket.disable_socket(allow_unix_socket=True)`. The second call replaces
+  `socket.socket` with a guard class whose `__new__` raises `SocketBlockedError` for any
+  non-Unix socket unconditionally, before a `connect()`-level allow-list is ever
+  consulted. Measured directly: with only `socket_allow_hosts([VICTROLA_HOST,
+  "127.0.0.1"])` in `tests/e2e/conftest.py`'s autouse fixture, every live request failed
+  inside `aiohappyeyeballs` at the bare `socket.socket()` call with
+  `HASocketBlockedError: A test tried to use socket.socket.`. Calling
+  `pytest_socket.enable_socket()` first, then `socket_allow_hosts(...)`, fixed it.
+- **aiohttp's `StreamReader.read(n)` returns as soon as any data is buffered, not once
+  n bytes arrive.** Reading the live FLAC stream's first 64 KiB with
+  `resp.content.read(65536)` returned after a single ~4 KiB TCP read — far too little
+  for `ffprobe` to find a stream (it exits 1, "End of file"). `readexactly(65536)`
+  (wrapped in `asyncio.timeout(5)`, catching both `TimeoutError` and
+  `asyncio.IncompleteReadError`) accumulates across reads until it actually has the
+  full 64 KiB or the deadline passes.
 
 ## Working with Doctor Biz
 

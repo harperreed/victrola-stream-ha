@@ -17,10 +17,13 @@ from yarl import URL
 
 _FIXTURES_DIR = Path(__file__).parent / "fixtures"
 _INVALID_PATH_KEY = "settings:/victrola/doesNotExist"
-# UNVERIFIED: the live tests on 2026-10-02 never captured a reply for an
-# unknown or expired queue id. This is the brief's placeholder shape, not a
-# recorded payload; NsdkClient treats it like any other NSDK error body.
-_QUEUE_NOT_FOUND_BODY = {"error": {"name": "queueNotFound", "message": "unknown queue"}}
+# The device's real reply to an unknown or expired queue id, recorded live
+# 2026-10-03 (Ruling R13 probe 1): HTTP 400, Content-Type text/plain, a plain
+# string body -- not an NSDK {"error": {...}} object. NsdkClient never parses
+# it as NSDK JSON: resp.json() fails on the non-JSON body, which NsdkClient
+# maps to NsdkConnectionError like any other reply it cannot read.
+_QUEUE_NOT_FOUND_STATUS = 400
+_QUEUE_NOT_FOUND_BODY = "Unknown queue id!"
 
 
 def _load_fixture(name: str) -> Any:
@@ -135,7 +138,11 @@ class FakeVictrola:
         queue_id = url.query["queueId"]
         if queue_id in self._dropped_queues or queue_id not in self._queues:
             return AiohttpClientMockResponse(
-                method=method, url=url, json=_QUEUE_NOT_FOUND_BODY
+                method=method,
+                url=url,
+                status=_QUEUE_NOT_FOUND_STATUS,
+                text=_QUEUE_NOT_FOUND_BODY,
+                headers={"Content-Type": "text/plain"},
             )
         queue = self._queues[queue_id]
         try:
@@ -159,10 +166,7 @@ class FakeVictrola:
                 queue.put_nowait(event)
 
     def drop_queues(self) -> None:
-        """Make every current queue id answer pollQueue as unknown.
-
-        UNVERIFIED: see _QUEUE_NOT_FOUND_BODY above.
-        """
+        """Make every current queue id answer pollQueue as unknown or expired."""
         self._dropped_queues.update(self._queues)
 
     def _check_online(self) -> None:

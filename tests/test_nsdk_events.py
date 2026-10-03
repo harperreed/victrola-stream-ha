@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from custom_components.victrola_stream.nsdk import NsdkError, NsdkEvent, NsdkValue
+from custom_components.victrola_stream.nsdk import (
+    NsdkConnectionError,
+    NsdkEvent,
+    NsdkValue,
+)
 
 _FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -52,11 +56,14 @@ async def test_poll_returns_empty_list_on_timeout(client):
     assert events == []
 
 
-async def test_poll_error_body_raises_nsdk_error(client, fake):
+async def test_poll_dropped_queue_raises_nsdk_connection_error(client, fake):
+    # The device's real reply (Ruling R13 probe 1) is a non-JSON HTTP 400,
+    # which NsdkClient cannot parse as an NSDK error body; it surfaces the
+    # same as any other reply it cannot read.
     queue_id = await client.subscribe(["player:volume"])
     fake.drop_queues()
 
-    with pytest.raises(NsdkError):
+    with pytest.raises(NsdkConnectionError):
         await client.poll(queue_id, timeout_s=5)
 
 

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# ABOUTME: Live end-to-end suite against the real Victrola Stream turntable.
+# ABOUTME: Requires VICTROLA_HOST; talks only to that host and the URLs it returns.
+set -euo pipefail
+
+if [[ -z "${VICTROLA_HOST:-}" ]]; then
+    echo "scripts/e2e: VICTROLA_HOST is not set; refusing to guess a device." >&2
+    exit 1
+fi
+
+uv run pytest tests/e2e -q "$@"
