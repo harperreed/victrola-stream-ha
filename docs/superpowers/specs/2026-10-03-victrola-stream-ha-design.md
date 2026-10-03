@@ -1,7 +1,7 @@
 # Victrola Stream for Home Assistant — design
 
 - **Date:** 2026-10-03
-- **Status:** design sections approved in chat; this written spec awaits Doctor Biz's review
+- **Status:** approved by Doctor Biz: "let's build it. GO GO GO." (2026-10-03)
 - **Repo:** `victrola-stream-ha` (local git only; pushing to GitHub as `harperreed/victrola-stream-ha` waits for explicit approval)
 - **Device reference:** `../victrola-stream-go/docs/victrola-nsdk-api.md`, `../victrola-stream-go/docs/live-stream-discovery.md`, `../victrola-stream-go/gotchas.md`
 
