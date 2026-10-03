@@ -189,10 +189,10 @@ def test_row_title_strips_html():
 def test_sanitize_replaces_discovered_private_values():
     raw = {"get_data": {"settings:/system/serialNumber": [{"type": "string_", "string_": "7a0a7a0a-1111-2222-3333-444455556666"}],
                         "network:info": [{"type": "networkInfo", "networkInfo": {"wireless": {"ssid": "home-wifi", "bssid": "AA:BB:CC:DD:EE:01", "mac": "AA:BB:CC:DD:EE:02", "addresses": [{"ip": "10.1.2.3", "protocol": "ipv4"}]}}}]},
-           "get_rows": {"victrola:ui/speakerSelection": {"rows": [{"title": "Den + 2", "id": "RINCON_ABCDEF12345601400", "value": {"type": "sonosGroup", "sonosGroup": {"householdId": "Sonos_secretHOUSE", "leader": {"host": "10.1.2.9"}}}}]}},
+           "get_rows": {"victrola:ui/speakerSelection": {"rows": [{"title": "Den + 2", "id": "RINCON_FAKEFAKEFAKE01400", "value": {"type": "sonosGroup", "sonosGroup": {"householdId": "Sonos_secretHOUSE", "leader": {"host": "10.1.2.9"}}}}]}},
            "events": []}
     out = json.dumps(capture.sanitize(raw, device_ip="10.1.2.3"))
-    for secret in ("7a0a7a0a", "home-wifi", "AA:BB:CC:DD:EE", "10.1.2.", "RINCON_ABCDEF", "Sonos_secretHOUSE", "Den"):
+    for secret in ("7a0a7a0a", "home-wifi", "AA:BB:CC:DD:EE", "10.1.2.", "RINCON_FAKE", "Sonos_secretHOUSE", "Den"):
         assert secret not in out
     assert "192.0.2.10" in out and "+ 2" in out
 ```
@@ -203,7 +203,7 @@ def test_sanitize_replaces_discovered_private_values():
   - `sanitize(raw: dict, device_ip: str) -> dict` discovers the private values in the capture (serial, `memberId`, MACs, SSID, BSSID, IPv4/IPv6 addresses, RINCON ids, the household id, room titles) and replaces each one everywhere in the text. The device IP becomes `192.0.2.10`, other IPv4 addresses `192.0.2.<n>`, IPv6 `2001:db8::<n>`, serials and UUIDs `00000000-0000-4000-8000-00000000000<n>`, MACs `02:00:00:00:00:<nn>`, the SSID `example-wifi`, RINCON ids `RINCON_<12 zero-padded digits>01400`, the household `Sonos_EXAMPLE`, and each room `Zone <n>` (keeping a `+ N` suffix).
   - It writes `get_data.json`, `get_rows.json` and `events.json`, then exits non-zero if any discovered private value survives anywhere in the output.
 
-- [ ] **Step 7: Run the recorder against the live Onyx** (the record need not be playing): `uv run python scripts/capture_fixtures.py 192.0.2.10 tests/fixtures`. Expect three files written and exit 0. Open `get_rows.json` and confirm exactly one row has `"preferred": true` and that every title is a `Zone <n>` name.
+- [ ] **Step 7: Run the recorder against the live Onyx** (the record need not be playing): `uv run python scripts/capture_fixtures.py "$VICTROLA_HOST" tests/fixtures`. Expect three files written and exit 0. Open `get_rows.json` and confirm exactly one row has `"preferred": true` and that every title is a `Zone <n>` name.
 
 - [ ] **Step 8: Add a privacy guard test** to `tests/test_capture_fixtures.py`: `test_fixtures_hold_no_private_values` reads all three fixture files and asserts that none contain `192.168.` or `Sonos_` other than `Sonos_EXAMPLE`, that every RINCON id matches `RINCON_\d{12}01400`, and that every MAC matches `02:00:00:00:00:[0-9A-F]{2}`. Run `uv run pytest tests/test_capture_fixtures.py -q`; expect PASS.
 
@@ -742,7 +742,7 @@ async def test_live_media_source_resolves_current_url(hass):  # resolved flac ur
 async def test_live_enum_write_roundtrip(hass):            # sonos_audio_delay: current → another option → back; read-back confirms both
 ```
 
-- [ ] **Step 2: Run the suite against the Onyx.** Run `VICTROLA_HOST=192.0.2.10 scripts/e2e`; expect PASS (the stream test may skip if no record is playing). Then run `VICTROLA_E2E_ENUM_WRITE=1 VICTROLA_HOST=192.0.2.10 scripts/e2e -k enum` with the turntable idle; expect PASS. If the enum write fails, apply the spec's policy: the three enum entities move from `select` to read-only `sensor`. Record the outcome in `gotchas.md`.
+- [ ] **Step 2: Run the suite against the Onyx.** Run `VICTROLA_HOST=<turntable IP> scripts/e2e`; expect PASS (the stream test may skip if no record is playing). Then run `VICTROLA_E2E_ENUM_WRITE=1 VICTROLA_HOST=<turntable IP> scripts/e2e -k enum` with the turntable idle; expect PASS. If the enum write fails, apply the spec's policy: the three enum entities move from `select` to read-only `sensor`. Record the outcome in `gotchas.md`.
 
 - [ ] **Step 3: Run the live checklist with Doctor Biz at the turntable.** Ask for each physical action in turn and record the observed result in a "Live checklist" list under the Now section:
   - lift the needle and stop the platter → `platter_spinning` goes off (motorDet `false`)
@@ -816,7 +816,7 @@ Publishing is outward-facing. Don't start this task until Doctor Biz says to pub
   - `hacs`: `hacs/action@main` with `category: integration`.
   - `tests`: `actions/checkout@v4`, `astral-sh/setup-uv` (the current major tag), then `uv sync` and `scripts/check`.
 
-- [ ] **Step 2: Re-run the privacy guard on everything about to go public.** Run `uv run pytest tests/test_capture_fixtures.py -q` (PASS). Then `git grep -nE '192\.168\.|RINCON_[0-9A-F]{12}|example-wifi'` must print nothing outside `.gitignore`d files.
+- [ ] **Step 2: Re-run the privacy guard on everything about to go public.** Run `uv run pytest tests/test_capture_fixtures.py -q` (PASS). Then `git grep -nE '192\.168\.|RINCON_[0-9A-F]{12}|example-wifi' -- . ':!docs/superpowers'` must print nothing outside `.gitignore`d files.
 
 - [ ] **Step 3: Ask Doctor Biz** whether the repo should be public or private, then create it with the remote: `gh repo create harperreed/victrola-stream-ha --<public|private> --source . --description "Home Assistant integration for Victrola Stream turntables (HACS)"`. Push `main`, and add the topics `home-assistant`, `hacs`, `victrola`, `turntable`.
 
