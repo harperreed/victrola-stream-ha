@@ -4,27 +4,14 @@ import pytest
 
 from custom_components.victrola_stream import const
 from custom_components.victrola_stream.nsdk import (
-    NsdkClient,
     NsdkConnectionError,
     NsdkInvalidPath,
     NsdkValue,
     NsdkWriteRejected,
 )
-from tests.fake_device import FakeVictrola
 
-
-@pytest.fixture
-def fake(aioclient_mock):
-    return FakeVictrola(aioclient_mock)
-
-
-@pytest.fixture
-async def client(hass, aioclient_mock, fake):
-    session = aioclient_mock.create_session(hass.loop)
-    try:
-        yield NsdkClient(session, fake.host)
-    finally:
-        await session.close()
+# The `fake` and `client` fixtures live in tests/conftest.py, shared with
+# tests/test_nsdk_events.py.
 
 
 async def test_get_value_parses_typed_value(client):

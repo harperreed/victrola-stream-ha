@@ -99,6 +99,30 @@ class NsdkRow:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class NsdkEvent:
+    """One event from a pollQueue reply, e.g. a player:volume change."""
+
+    path: str
+    item_type: str
+    value: NsdkValue | None
+
+    @classmethod
+    def from_json(cls, obj: dict[str, Any]) -> NsdkEvent:
+        """Parse one pollQueue list item.
+
+        Never raises: a malformed item just parses with an empty path or
+        item_type, the same tolerance NsdkRow.from_json gives a malformed
+        row. The list-shape check lives in NsdkClient.poll.
+        """
+        item_value = obj.get("itemValue")
+        return cls(
+            path=obj.get("path") or "",
+            item_type=obj.get("itemType") or "",
+            value=NsdkValue.from_json(item_value) if item_value is not None else None,
+        )
+
+
 class NsdkError(Exception):
     """A device-reported NSDK fault, e.g. CMAbstractWorker::invalidPath."""
 
@@ -133,6 +157,10 @@ def _query_escape(value: Any) -> str:
 
 def _encode_query(params: dict[str, Any]) -> str:
     return "&".join(f"{key}={_query_escape(val)}" for key, val in params.items())
+
+
+def _queue_item(path: str) -> dict[str, str]:
+    return {"path": path, "type": "itemWithValue"}
 
 
 def _error_from_body(body: Any) -> NsdkError | None:
@@ -253,18 +281,65 @@ class NsdkClient:
         )
         _raise_if_write_rejected(path, body)
 
-    async def _get(self, endpoint: str, params: dict[str, Any]) -> Any:
+    async def subscribe(self, paths: Iterable[str]) -> str:
+        """Create an event queue subscribed to paths; returns the server's queue id."""
+        body = await self._modify_queue("", [_queue_item(p) for p in paths], [])
+        if not isinstance(body, str) or not body:
+            raise NsdkConnectionError(
+                f"modifyQueue: expected a queue id string, got {body!r}"
+            )
+        return body
+
+    async def poll(self, queue_id: str, timeout_s: int) -> list[NsdkEvent]:
+        """Long-poll a queue for events. The device's timeout unit is seconds."""
+        body = await self._get(
+            "/api/event/pollQueue",
+            {"queueId": queue_id, "timeout": timeout_s},
+            request_timeout=aiohttp.ClientTimeout(total=timeout_s + 10),
+        )
+        if not isinstance(body, list):
+            raise NsdkConnectionError(f"pollQueue: expected a list, got {body!r}")
+        return [NsdkEvent.from_json(item) for item in body]
+
+    async def unsubscribe(self, queue_id: str, paths: Iterable[str]) -> None:
+        """Drop paths from an existing queue."""
+        await self._modify_queue(queue_id, [], [_queue_item(p) for p in paths])
+
+    async def _modify_queue(
+        self,
+        queue_id: str,
+        subscribe: list[dict[str, str]],
+        unsubscribe: list[dict[str, str]],
+    ) -> Any:
+        return await self._post(
+            "/api/event/modifyQueue",
+            {"queueId": queue_id, "subscribe": subscribe, "unsubscribe": unsubscribe},
+        )
+
+    async def _get(
+        self,
+        endpoint: str,
+        params: dict[str, Any],
+        *,
+        request_timeout: aiohttp.ClientTimeout | None = None,
+    ) -> Any:
         url = f"http://{self._host}{endpoint}?{_encode_query(params)}"
-        return await self._send("GET", url)
+        return await self._send("GET", url, request_timeout=request_timeout)
 
     async def _post(self, endpoint: str, payload: dict[str, Any]) -> Any:
         url = f"http://{self._host}{endpoint}"
         return await self._send("POST", url, json_body=payload)
 
-    async def _send(self, method: str, url: str, json_body: Any = None) -> Any:
+    async def _send(
+        self,
+        method: str,
+        url: str,
+        json_body: Any = None,
+        request_timeout: aiohttp.ClientTimeout | None = None,
+    ) -> Any:
         try:
             async with self._session.request(
-                method, url, json=json_body, timeout=_TIMEOUT
+                method, url, json=json_body, timeout=request_timeout or _TIMEOUT
             ) as resp:
                 body = await resp.json()
                 error = _error_from_body(body)
