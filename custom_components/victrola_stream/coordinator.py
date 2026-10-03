@@ -145,12 +145,7 @@ class VictrolaCoordinator(DataUpdateCoordinator[VictrolaState]):
             # cancellation of our own caller still propagates.
             await asyncio.wait([self._push_task])
             self._push_task = None
-        if self._queue_id is not None:
-            queue_id, self._queue_id = self._queue_id, None
-            try:
-                await self.client.unsubscribe(queue_id, SUBSCRIBED_PATHS)
-            except (NsdkError, NsdkConnectionError) as err:
-                _LOGGER.debug("Could not unsubscribe event queue %s: %s", queue_id, err)
+        await self._async_drop_queue()
 
     async def async_shutdown(self) -> None:
         """Stop the push loop and unsubscribe, then let the base class finish up.
@@ -179,24 +174,27 @@ class VictrolaCoordinator(DataUpdateCoordinator[VictrolaState]):
     async def _push_loop(self) -> None:
         """Fold device events into the snapshot as they arrive; reconnect on failure.
 
-        It subscribes before the resync read, so no change can slip in between.
+        Every pass subscribes, then does a full read, then polls. A change made
+        before the subscribe shows up in that read, and one made after it
+        arrives as an event; on the first pass that covers the gap after
+        setup's own read. What sends no event, such as the speaker list, waits
+        for the 5-minute read.
         """
         backoff = BACKOFF_START_S
-        resync = False
         while True:
             try:
                 queue = await self.client.subscribe(SUBSCRIBED_PATHS)
                 self._queue_id = queue
-                if resync:  # device came back: re-read everything, incl. stream URLs
-                    await self.async_refresh()
-                    if not self.last_update_success:
-                        # async_refresh logs and swallows a failed read. Polling
-                        # on would let the next event mark the old snapshot, with
-                        # its old stream ports, current again; retry instead.
-                        raise NsdkConnectionError(
-                            f"full read after reconnect failed: {self.last_exception}"
-                        )
-                    resync = False
+                # Read everything, stream URLs included: the device may have
+                # rebooted, or changed since the last read.
+                await self.async_refresh()
+                if not self.last_update_success:
+                    # async_refresh logs and swallows a failed read. Polling
+                    # on would let the next event mark the old snapshot, with
+                    # its old stream ports, current again; retry instead.
+                    raise NsdkConnectionError(
+                        f"full read after subscribing failed: {self.last_exception}"
+                    )
                 backoff = BACKOFF_START_S
                 while True:
                     events = await self.client.poll(queue, POLL_TIMEOUT_S)
@@ -215,12 +213,27 @@ class VictrolaCoordinator(DataUpdateCoordinator[VictrolaState]):
                     _LOGGER.exception(
                         "Push loop failed unexpectedly; retrying in %s s", backoff
                     )
-                self._queue_id = None
                 # Entities go unavailable now, not at the next full read.
                 self.async_set_update_error(err)
-                resync = True
+                await self._async_drop_queue()
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, BACKOFF_MAX_S)
+
+    async def _async_drop_queue(self) -> None:
+        """Unsubscribe the event queue the loop holds, if any, then forget it.
+
+        Best effort: it swallows every error, since the device may be gone and
+        cleanup must not end the push loop. A cancel still propagates and
+        leaves the id in place, so async_stop_push tries again.
+        """
+        queue_id = self._queue_id
+        if queue_id is None:
+            return
+        try:
+            await self.client.unsubscribe(queue_id, SUBSCRIBED_PATHS)
+        except Exception as err:  # best effort: see the docstring
+            _LOGGER.debug("Could not unsubscribe event queue %s: %s", queue_id, err)
+        self._queue_id = None
 
     async def _apply(self, events: list[NsdkEvent]) -> None:
         """Fold tracked events into a copy of the snapshot.

@@ -68,6 +68,11 @@ class FakeVictrola:
         )
         aioclient_mock.get(f"{base}/api/event/pollQueue", side_effect=self._poll_queue)
 
+    @property
+    def created_queue_ids(self) -> list[str]:
+        """Every queue id modifyQueue has handed out, oldest first."""
+        return list(self._queues)
+
     async def _get_data(
         self, method: str, url: URL, data: Any
     ) -> AiohttpClientMockResponse:

@@ -65,11 +65,14 @@ async def coordinator(hass, client, fake, monkeypatch):
         await coordinator.async_shutdown()  # cancels a scheduled full read
 
 
-async def _start_push(coordinator: VictrolaCoordinator, fake: FakeVictrola) -> None:
-    """Do the first full read, start the push loop, and wait until it subscribes."""
+async def _start_push(coordinator: VictrolaCoordinator, aioclient_mock) -> None:
+    """Do the first full read, start the push loop, and wait for its first poll.
+
+    By then the loop has subscribed and done its own full read.
+    """
     await coordinator.async_refresh()
     coordinator.async_start_push()
-    await wait_for(lambda: fake.subscribe_calls)
+    await wait_for(lambda: _polled_queue_ids(aioclient_mock))
 
 
 def _string_value(text: str) -> list[dict[str, Any]]:
@@ -204,10 +207,10 @@ async def test_events_do_not_postpone_the_full_read(
     assert gone not in coordinator.data.speakers
 
 
-async def test_push_applies_event(coordinator, fake):
+async def test_push_applies_event(coordinator, fake, aioclient_mock):
     # The fixture records the platter at rest; this recorded event starts it.
     event = _recorded_event(NODE_MOTOR)
-    await _start_push(coordinator, fake)
+    await _start_push(coordinator, aioclient_mock)
     assert coordinator.data.value(NODE_MOTOR).as_bool() is False
 
     fake.push_event(event["path"], event["itemValue"])
@@ -215,9 +218,22 @@ async def test_push_applies_event(coordinator, fake):
     await wait_for(lambda: coordinator.data.value(NODE_MOTOR).as_bool() is True)
 
 
-async def test_malformed_event_does_not_stop_the_push_loop(coordinator, fake, caplog):
+async def test_change_before_the_first_subscribe_shows_up(coordinator, fake):
+    await coordinator.async_refresh()  # setup's first full read
+    # The platter starts before the loop subscribes: no queue, so no event.
     event = _recorded_event(NODE_MOTOR)
-    await _start_push(coordinator, fake)
+    fake.push_event(event["path"], event["itemValue"])
+
+    coordinator.async_start_push()
+
+    await wait_for(lambda: coordinator.data.value(NODE_MOTOR).as_bool() is True)
+
+
+async def test_malformed_event_does_not_stop_the_push_loop(
+    coordinator, fake, aioclient_mock, caplog
+):
+    event = _recorded_event(NODE_MOTOR)
+    await _start_push(coordinator, aioclient_mock)
 
     # An itemValue that is a bare string, not a typed value; then a real event.
     fake.push_raw_event({**event, "itemValue": "garbage"})
@@ -227,8 +243,8 @@ async def test_malformed_event_does_not_stop_the_push_loop(coordinator, fake, ca
     assert _coordinator_errors(caplog) == []
 
 
-async def test_output_toggle_event_rereads_speakers(coordinator, fake):
-    await _start_push(coordinator, fake)
+async def test_output_toggle_event_rereads_speakers(coordinator, fake, aioclient_mock):
+    await _start_push(coordinator, aioclient_mock)
     assert coordinator.data.speakers
     fake.rows[SPEAKERS_PATH] = _speaker_list_without_speakers(fake)
 
@@ -261,8 +277,8 @@ async def test_apply_ignores_untracked_and_valueless_events(coordinator, fake):
     assert coordinator.data.values == before.values
 
 
-async def test_reconnect_rereads_urls(coordinator, fake, caplog):
-    await _start_push(coordinator, fake)
+async def test_reconnect_rereads_urls(coordinator, fake, aioclient_mock, caplog):
+    await _start_push(coordinator, aioclient_mock)
 
     fake.offline = True
     await wait_for(lambda: not coordinator.last_update_success)
@@ -282,7 +298,7 @@ async def test_reconnect_rereads_urls(coordinator, fake, caplog):
 async def test_reconnect_retries_a_failed_full_read(
     coordinator, fake, aioclient_mock, caplog
 ):
-    await _start_push(coordinator, fake)
+    await _start_push(coordinator, aioclient_mock)
     fake.offline = True
     await wait_for(lambda: not coordinator.last_update_success)
 
@@ -304,11 +320,38 @@ async def test_reconnect_retries_a_failed_full_read(
     assert _coordinator_errors(caplog) == [_OFFLINE_ERROR]
 
 
+async def test_failed_passes_leave_no_queue_subscribed(
+    coordinator, fake, aioclient_mock
+):
+    await _start_push(coordinator, aioclient_mock)
+
+    # A blip: the device forgets the queue, then fails full reads for a while,
+    # so the loop also drops queues whose reads fail before they are polled.
+    fake.raw_replies[NODE_MOTOR] = "not json"
+    fake.drop_queues()
+    await wait_for(lambda: len(fake.created_queue_ids) >= 3)
+    del fake.raw_replies[NODE_MOTOR]
+    await wait_for(
+        lambda: (
+            coordinator.last_update_success
+            and fake.created_queue_ids[-1] in _polled_queue_ids(aioclient_mock)
+        )
+    )
+
+    *abandoned, _live = fake.created_queue_ids
+    every_path = [{"path": path, "type": "itemWithValue"} for path in SUBSCRIBED_PATHS]
+    unsubscribed = [
+        call["queueId"]
+        for call in fake.subscribe_calls
+        if call["unsubscribe"] == every_path
+    ]
+    assert sorted(unsubscribed) == sorted(abandoned)
+
+
 async def test_push_loop_survives_an_unexpected_error(
     coordinator, fake, aioclient_mock, caplog
 ):
-    await _start_push(coordinator, fake)
-    await wait_for(lambda: _polled_queue_ids(aioclient_mock))
+    await _start_push(coordinator, aioclient_mock)
     availability: list[bool] = []
     coordinator.async_add_listener(
         lambda: availability.append(coordinator.last_update_success)
@@ -400,8 +443,7 @@ async def test_async_activate_rereads_speakers_only_when_asked(coordinator, fake
 
 
 async def test_stop_push_unsubscribes(coordinator, fake, aioclient_mock):
-    await _start_push(coordinator, fake)
-    await wait_for(lambda: _polled_queue_ids(aioclient_mock))
+    await _start_push(coordinator, aioclient_mock)
     (queue_id,) = _polled_queue_ids(aioclient_mock)
 
     await coordinator.async_stop_push()
