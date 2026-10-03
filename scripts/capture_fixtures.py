@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import ipaddress
 import itertools
 import json
 import re
@@ -11,7 +12,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -117,14 +118,24 @@ def _poll_queue(host: str, queue_id: str, timeout_s: int) -> Any:
 #
 # sanitize() works on the capture's JSON text rather than walking a fixed
 # schema, so a private value nested under any node path is caught the same
-# way. The passes below run in an order where no category's own placeholder
-# can be mistaken for another category's input: IPv6 runs before MAC because
-# a bare MAC is a degenerate case of the broad hex-group pattern IPv6
-# addresses need; MAC, RINCON, UUID, household and IPv4 don't overlap each
-# other or anything IPv6 leaves behind.
+# way. MAC/RINCON/UUID/household/IPv4 each have a rigid, unambiguous shape, so
+# a word-bounded regex finds them directly as a text substitution.
+#
+# IPv6 does not get the same treatment. `::` compression means a valid
+# address can start, end, or hide its zero run anywhere in the middle, and it
+# can even embed a dotted IPv4 tail (`::ffff:192.0.2.1`); no fixed-shape regex
+# finds every one of those forms without mis-splitting at least one of them
+# (this file's own history: one regex missed `fe80::1a2b` entirely or
+# truncated `2001:db8::1` to `2001:db8`, depending on digit parity; loosening
+# it to also find a leading `::` loosens it past a dot too, mis-splitting the
+# embedded-IPv4 form at the first "."). Every address this device reports is
+# its own complete JSON string value, never embedded in a larger string, so
+# IPv6 is instead found by walking the parsed capture and testing whole
+# string values with the stdlib `ipaddress` module — there is no substring to
+# mis-bound, so that whole class of bug cannot recur. The leak check below
+# re-derives IPv6 the same way, independently, from the finished output.
 
 _MAC_RE = re.compile(r"\b[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}\b")
-_HEX_GROUP_RE = re.compile(r"\b[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{0,4}){2,7}\b")
 _RINCON_RE = re.compile(r"RINCON_[0-9A-Za-z]+")
 _UUID_RE = re.compile(
     r"\b[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\b"
@@ -134,9 +145,19 @@ _IPV4_RE = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
 _ROOM_SUFFIX_RE = re.compile(r"(\s+\+\s+\d+)$")
 
 
-def _is_mac_shaped(token: str) -> bool:
-    groups = token.split(":")
-    return len(groups) == 6 and all(len(g) == 2 for g in groups)
+def _is_ipv6(value: str) -> bool:
+    """True when value is a complete, valid IPv6 address, per ipaddress.
+
+    A MAC's 6 colon-separated groups fail this (no `::` means 8 groups are
+    required), so the same check both accepts every `::` shape and keeps
+    MACs out, with no shape-guessing of its own.
+    """
+    if ":" not in value:
+        return False
+    try:
+        return isinstance(ipaddress.ip_address(value), ipaddress.IPv6Address)
+    except ValueError:
+        return False
 
 
 def _counting_sub(
@@ -158,19 +179,60 @@ def _counting_sub(
     return pattern.sub(repl, text)
 
 
-def _sanitize_ipv6(text: str) -> str:
+def _find_by_key(obj: Any, key: str) -> list[str]:
+    """Recursively collect string values stored under an exact dict key."""
+    found: list[str] = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == key and isinstance(v, str) and v:
+                found.append(v)
+            else:
+                found.extend(_find_by_key(v, key))
+    elif isinstance(obj, list):
+        for item in obj:
+            found.extend(_find_by_key(item, key))
+    return found
+
+
+def _all_string_values(obj: Any) -> Iterator[str]:
+    """Walk a parsed JSON value, yielding every string anywhere inside it."""
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for value in obj.values():
+            yield from _all_string_values(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            yield from _all_string_values(item)
+
+
+def _speaker_rows(raw: dict[str, Any]) -> list[dict[str, Any]]:
+    speakers = raw.get("get_rows", {}).get(const.SPEAKERS_PATH, {})
+    rows = speakers.get("rows", []) if isinstance(speakers, dict) else []
+    return [row for row in rows if isinstance(row, dict) and row.get("id")]
+
+
+def _sanitize_text(text: str, original: str, replacement: str) -> str:
+    """Replace one exact string value everywhere it appears as a JSON string."""
+    return text.replace(json.dumps(original), json.dumps(replacement))
+
+
+def _sanitize_ipv6(text: str, raw: dict[str, Any]) -> str:
+    """Replace every IPv6 address found among raw's string values.
+
+    Walks `raw` rather than scanning `text` with a regex — see the module
+    note above. Runs first, against the still-untouched `text`, so no later
+    pass's placeholder can be mistaken for an IPv6 candidate.
+    """
     seen: dict[str, str] = {}
     counter = itertools.count(1)
-
-    def repl(match: re.Match[str]) -> str:
-        token = match.group(0)
-        if "::" not in token and _is_mac_shaped(token):
-            return token  # a MAC, not an IPv6 address; leave it for the MAC pass
-        if token not in seen:
-            seen[token] = f"2001:db8::{next(counter)}"
-        return seen[token]
-
-    return _HEX_GROUP_RE.sub(repl, text)
+    for value in dict.fromkeys(_all_string_values(raw)):
+        if not _is_ipv6(value):
+            continue
+        if value not in seen:
+            seen[value] = f"2001:db8::{next(counter)}"
+        text = _sanitize_text(text, value, seen[value])
+    return text
 
 
 def _sanitize_ipv4(text: str, device_ip: str) -> str:
@@ -187,32 +249,6 @@ def _sanitize_ipv4(text: str, device_ip: str) -> str:
         return seen[token]
 
     return _IPV4_RE.sub(repl, text)
-
-
-def _find_by_key(obj: Any, key: str) -> list[str]:
-    """Recursively collect string values stored under an exact dict key."""
-    found: list[str] = []
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            if k == key and isinstance(v, str) and v:
-                found.append(v)
-            else:
-                found.extend(_find_by_key(v, key))
-    elif isinstance(obj, list):
-        for item in obj:
-            found.extend(_find_by_key(item, key))
-    return found
-
-
-def _speaker_rows(raw: dict[str, Any]) -> list[dict[str, Any]]:
-    speakers = raw.get("get_rows", {}).get(const.SPEAKERS_PATH, {})
-    rows = speakers.get("rows", []) if isinstance(speakers, dict) else []
-    return [row for row in rows if isinstance(row, dict) and row.get("id")]
-
-
-def _sanitize_text(text: str, original: str, replacement: str) -> str:
-    """Replace one exact string value everywhere it appears as a JSON string."""
-    return text.replace(json.dumps(original), json.dumps(replacement))
 
 
 def _sanitize_ssids(text: str, raw: dict[str, Any]) -> str:
@@ -243,7 +279,7 @@ def sanitize(raw: dict[str, Any], device_ip: str) -> dict[str, Any]:
     <n>", keeping any "+ N" grouped-speaker suffix.
     """
     text = json.dumps(raw)
-    text = _sanitize_ipv6(text)
+    text = _sanitize_ipv6(text, raw)
     text = _counting_sub(_MAC_RE, text, lambda n: f"02:00:00:00:00:{n:02d}")
     text = _counting_sub(_RINCON_RE, text, lambda n: f"RINCON_{n:012d}01400")
     text = _counting_sub(
@@ -277,12 +313,23 @@ def _shape_violations(text: str) -> list[str]:
     for match in _IPV4_RE.findall(text):
         if not match.startswith("192.0.2."):
             bad.append(match)
-    for match in _HEX_GROUP_RE.findall(text):
-        if "::" not in match and _is_mac_shaped(match):
-            continue  # a MAC; already checked above
-        if not match.startswith("2001:db8:"):
-            bad.append(match)
     return bad
+
+
+def _ipv6_leaks(sanitized: dict[str, Any]) -> list[str]:
+    """Independently re-check every string value for an unredacted IPv6 address.
+
+    Re-derives the answer from scratch by walking `sanitized` itself, rather
+    than trusting whatever `_sanitize_ipv6` claims to have already handled:
+    a future regression in that pass (a skipped branch, a reintroduced
+    regex, ...) still gets caught here, because this check never depends on
+    its bookkeeping, only on the finished output.
+    """
+    return [
+        value
+        for value in _all_string_values(sanitized)
+        if _is_ipv6(value) and not value.startswith("2001:db8:")
+    ]
 
 
 def _structural_leaks(raw: dict[str, Any], text: str) -> list[str]:
@@ -298,7 +345,9 @@ def _structural_leaks(raw: dict[str, Any], text: str) -> list[str]:
 def check_sanitized(raw: dict[str, Any], sanitized: dict[str, Any]) -> list[str]:
     """Return every private value that survived sanitizing, or [] when clean."""
     text = json.dumps(sanitized)
-    return _shape_violations(text) + _structural_leaks(raw, text)
+    return (
+        _shape_violations(text) + _structural_leaks(raw, text) + _ipv6_leaks(sanitized)
+    )
 
 
 def main(argv: list[str]) -> int:
@@ -307,7 +356,6 @@ def main(argv: list[str]) -> int:
         return 2
     host, outdir = argv[1], argv[2]
     out_dir = Path(outdir)
-    out_dir.mkdir(parents=True, exist_ok=True)
 
     paths = [
         *const.IDENTITY_PATHS,
@@ -329,11 +377,10 @@ def main(argv: list[str]) -> int:
         _RECORDED_MOTOR_EVENT,
     ]
 
-    for name in ("get_data", "get_rows", "events"):
-        (out_dir / f"{name}.json").write_text(
-            json.dumps(sanitized[name], indent=2, sort_keys=True) + "\n"
-        )
-
+    # Validate before writing anything: a run that fails this check must leave
+    # tests/fixtures/ untouched, not a possibly-leaking partial write sitting
+    # in the tracked directory waiting for an operator to notice a bad exit
+    # code before `git add`-ing it anyway.
     leaks = check_sanitized(raw, sanitized)
     if leaks:
         print(
@@ -341,6 +388,12 @@ def main(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 1
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("get_data", "get_rows", "events"):
+        (out_dir / f"{name}.json").write_text(
+            json.dumps(sanitized[name], indent=2, sort_keys=True) + "\n"
+        )
 
     print(
         f"wrote {out_dir}/get_data.json, {out_dir}/get_rows.json, {out_dir}/events.json"
