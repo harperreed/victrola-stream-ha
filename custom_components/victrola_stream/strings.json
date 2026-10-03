@@ -92,6 +92,44 @@
       "restart": {
         "name": "Restart"
       }
+    },
+    "select": {
+      "output": {
+        "name": "Output",
+        "state": {
+          "sonos": "Sonos",
+          "upnp": "UPnP",
+          "roon": "Roon",
+          "bluetooth": "Bluetooth"
+        }
+      },
+      "default_speaker": {
+        "name": "Default speaker"
+      },
+      "streaming_quality": {
+        "name": "Streaming quality",
+        "state": {
+          "connection_quality": "Prioritize connection",
+          "sound_quality": "Standard",
+          "lossless_quality": "Prioritize audio quality"
+        }
+      },
+      "sonos_audio_delay": {
+        "name": "Sonos audio delay",
+        "state": {
+          "min": "Min",
+          "med": "Med",
+          "high": "High",
+          "max": "Max"
+        }
+      },
+      "rca_mode": {
+        "name": "RCA mode",
+        "state": {
+          "switching": "Switching",
+          "simultaneous": "Simultaneous"
+        }
+      }
     }
   },
   "exceptions": {
