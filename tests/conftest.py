@@ -4,7 +4,12 @@ import asyncio
 from collections.abc import Callable
 
 import pytest
+from homeassistant.const import CONF_HOST
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.victrola_stream.const import DOMAIN, NODE_SERIAL
 from custom_components.victrola_stream.nsdk import NsdkClient
 from tests.fake_device import FakeVictrola
 
@@ -43,3 +48,26 @@ async def client(hass, aioclient_mock, fake):
         yield NsdkClient(session, fake.host)
     finally:
         await session.close()
+
+
+def fixture_serial(fake: FakeVictrola) -> str:
+    """The sanitized serial from tests/fixtures/get_data.json."""
+    return fake.values[NODE_SERIAL][0]["string_"]
+
+
+async def setup_entry(hass: HomeAssistant, fake: FakeVictrola) -> MockConfigEntry:
+    """Add a config entry for fake to hass and set it up. The caller unloads it."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={CONF_HOST: fake.host}, unique_id=fixture_serial(fake)
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    return entry
+
+
+def entity_id_for(
+    hass: HomeAssistant, platform: str, serial: str, key: str
+) -> str | None:
+    """The entity_id the registry assigned the given platform/key for serial."""
+    return er.async_get(hass).async_get_entity_id(platform, DOMAIN, f"{serial}_{key}")

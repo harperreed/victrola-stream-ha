@@ -52,6 +52,9 @@ URL_PATHS: dict[str, str] = {
     "flac": "adchls:serverUrl/flac",
 }
 
+# victrola:UpnpState values that count as "streaming" for the binary sensor.
+UPNP_STREAMING_STATES = frozenset({"playing"})  # ❓ verify in Task 12
+
 IDENTITY_PATHS = (
     NODE_SERIAL,
     NODE_MAC,

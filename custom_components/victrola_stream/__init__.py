@@ -9,8 +9,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .coordinator import VictrolaConfigEntry, VictrolaCoordinator
 from .nsdk import NsdkClient
 
-# Empty until Tasks 7-9 add sensor/select/switch etc. platforms.
-PLATFORMS: list[Platform] = []
+# Tasks 8 and 9 add the switch/number/button/select platforms.
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: VictrolaConfigEntry) -> bool:
@@ -28,6 +28,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: VictrolaConfigEntry) -> 
 
 async def async_unload_entry(hass: HomeAssistant, entry: VictrolaConfigEntry) -> bool:
     """Unload the platforms, then stop the coordinator's push loop."""
-    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    await entry.runtime_data.async_shutdown()
-    return unloaded
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        await entry.runtime_data.async_shutdown()
+    return unload_ok

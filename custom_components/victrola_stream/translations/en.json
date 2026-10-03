@@ -35,5 +35,36 @@
       "wrong_device": "This host belongs to a different Victrola Stream device.",
       "reconfigure_successful": "Reconfiguration was successful."
     }
+  },
+  "entity": {
+    "sensor": {
+      "wifi_signal": {
+        "name": "Wi-Fi signal"
+      },
+      "power_state": {
+        "name": "Power state",
+        "state": {
+          "online": "Online",
+          "network_standby": "Network standby"
+        }
+      },
+      "stream_url_hls": {
+        "name": "Stream URL (HLS)"
+      },
+      "stream_url_mp3": {
+        "name": "Stream URL (MP3)"
+      },
+      "stream_url_flac": {
+        "name": "Stream URL (FLAC)"
+      }
+    },
+    "binary_sensor": {
+      "platter_spinning": {
+        "name": "Platter spinning"
+      },
+      "streaming": {
+        "name": "Streaming"
+      }
+    }
   }
 }
