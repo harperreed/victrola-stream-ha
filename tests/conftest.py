@@ -1,12 +1,13 @@
 # ABOUTME: Shared pytest fixtures for the victrola_stream test suite.
 # ABOUTME: Lets HA's test harness load custom_components; shares fake/client fixtures.
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 import pytest
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.discovery_flow import DiscoveryKey
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.victrola_stream.const import DOMAIN, NODE_SERIAL
@@ -55,10 +56,18 @@ def fixture_serial(fake: FakeVictrola) -> str:
     return fake.values[NODE_SERIAL][0]["string_"]
 
 
-async def setup_entry(hass: HomeAssistant, fake: FakeVictrola) -> MockConfigEntry:
+async def setup_entry(
+    hass: HomeAssistant,
+    fake: FakeVictrola,
+    *,
+    discovery_keys: Mapping[str, tuple[DiscoveryKey, ...]] | None = None,
+) -> MockConfigEntry:
     """Add a config entry for fake to hass and set it up. The caller unloads it."""
     entry = MockConfigEntry(
-        domain=DOMAIN, data={CONF_HOST: fake.host}, unique_id=fixture_serial(fake)
+        domain=DOMAIN,
+        data={CONF_HOST: fake.host},
+        unique_id=fixture_serial(fake),
+        discovery_keys=discovery_keys,
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)

@@ -47,6 +47,8 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return a redacted snapshot of the config entry and device state."""
     return {
-        "entry": async_redact_data(entry.as_dict(), {"host", "unique_id", "title"}),
+        "entry": async_redact_data(
+            entry.as_dict(), {"host", "unique_id", "title", "discovery_keys"}
+        ),
         "state": async_redact_data(_state_dict(entry.runtime_data.data), TO_REDACT),
     }
