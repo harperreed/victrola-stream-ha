@@ -1,5 +1,7 @@
 # ABOUTME: Tests for the sensor platform: Wi-Fi, power state, stream URLs, device card.
 # ABOUTME: Runs against FakeVictrola's recorded payloads; nothing of ours is mocked.
+import logging
+
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
@@ -19,21 +21,24 @@ from tests.conftest import entity_id_for, fixture_serial, setup_entry, wait_for
 
 # The device's recorded Wi-Fi signal (tests/fixtures/get_data.json, network:info).
 _FIXTURE_SIGNAL_LEVEL = "-62"
+_SENSOR_MODULE = "custom_components.victrola_stream.sensor"
+
+
+def _power_target(target: str) -> dict:
+    """The real powerTarget shape (docs/victrola-nsdk-api.md) with this target."""
+    return {
+        "type": "powerTarget",
+        "powerTarget": {
+            "target": target,
+            "reason": "userActivity",
+            "nextReason": "none",
+            "nextTarget": "none",
+        },
+    }
 
 
 def _online_power_target() -> list[dict]:
-    """The real powerTarget shape (docs/victrola-nsdk-api.md) with target online."""
-    return [
-        {
-            "type": "powerTarget",
-            "powerTarget": {
-                "target": "online",
-                "reason": "userActivity",
-                "nextReason": "none",
-                "nextTarget": "none",
-            },
-        }
-    ]
+    return [_power_target("online")]
 
 
 def _flac_url_value() -> list[dict]:
@@ -84,6 +89,37 @@ async def test_sensors_report_online_values(hass, fake):
 
     assert power_state.state == "online"
     assert stream_url_flac.state.endswith("/stream.flac")
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_unknown_power_target_warns_once_per_value(hass, fake, caplog):
+    # Neither target is one the sensor maps; both are made up for this test.
+    fake.values[NODE_POWER] = [_power_target("hibernating")]
+    entry = await setup_entry(hass, fake)
+    coordinator = entry.runtime_data
+    await wait_for(lambda: fake.subscribe_calls)  # the push loop has subscribed
+
+    def target() -> str:
+        return coordinator.data.value(NODE_POWER).payload["target"]
+
+    for _ in range(3):  # each update makes every entity write its state again
+        coordinator.async_update_listeners()
+    fake.push_event(NODE_POWER, _power_target("dozing"))
+    await wait_for(lambda: target() == "dozing")
+    coordinator.async_update_listeners()
+    fake.push_event(NODE_POWER, _power_target("hibernating"))
+    await wait_for(lambda: target() == "hibernating")
+
+    assert [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == _SENSOR_MODULE and record.levelno == logging.WARNING
+    ] == [
+        "Unknown power target: 'hibernating'",
+        "Unknown power target: 'dozing'",
+    ]
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

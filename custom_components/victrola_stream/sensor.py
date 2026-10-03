@@ -28,6 +28,8 @@ _POWER_STATES = {
     "online": "online",
     "networkStandby": "network_standby",
 }
+# The repr of each unmapped target already logged, so each is logged once.
+_WARNED_POWER_TARGETS: set[str] = set()
 
 
 def _wifi_signal(state: VictrolaState) -> int | None:
@@ -48,11 +50,17 @@ def _wifi_signal(state: VictrolaState) -> int | None:
 
 
 def _power_state(state: VictrolaState) -> str | None:
-    """powermanager:target's .target, mapped to this sensor's options."""
-    target = state.value(NODE_POWER).payload
-    target = target.get("target") if isinstance(target, dict) else None
-    mapped = _POWER_STATES.get(target)
-    if mapped is None:
+    """powermanager:target's .target, mapped to this sensor's options.
+
+    Every state write lands here, so an unmapped target is logged only the
+    first time it turns up, not on every write.
+    """
+    payload = state.value(NODE_POWER).payload
+    target = payload.get("target") if isinstance(payload, dict) else None
+    # Only a string can be a key; anything else the device sends is unmapped.
+    mapped = _POWER_STATES.get(target) if isinstance(target, str) else None
+    if mapped is None and repr(target) not in _WARNED_POWER_TARGETS:
+        _WARNED_POWER_TARGETS.add(repr(target))
         _LOGGER.warning("Unknown power target: %r", target)
     return mapped
 
