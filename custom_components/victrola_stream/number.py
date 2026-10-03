@@ -13,18 +13,19 @@ from homeassistant.const import EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import NODE_KNOB_BRIGHTNESS, NODE_RCA_DELAY, NODE_VOLUME
+from .const import NODE_KNOB_BRIGHTNESS, NODE_RCA_DELAY, NODE_SONOS_SESSION, NODE_VOLUME
 from .coordinator import VictrolaConfigEntry, VictrolaState
 from .entity import VictrolaEntity, VictrolaEntityDescriptionMixin
 from .nsdk import NsdkValue
 
 
-def _upnp_or_bluetooth(state: VictrolaState) -> bool:
-    """player:volume only carries a live value in UPnP or Bluetooth output.
-
-    Sonos-mode volume is phase 2, pending victrola:getSonosVolume/setSonosVolume.
+def _volume_available(state: VictrolaState) -> bool:
+    """player:volume carries a live value in UPnP/Bluetooth output always,
+    and in Sonos output only while a Sonos streaming session is connected.
     """
-    return state.output in ("upnp", "bluetooth")
+    return state.output in ("upnp", "bluetooth") or (
+        state.output == "sonos" and state.value(NODE_SONOS_SESSION).as_bool() is True
+    )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -43,7 +44,7 @@ NUMBER_DESCRIPTIONS: tuple[VictrolaNumberEntityDescription, ...] = (
         native_max_value=100,
         native_step=1,
         mode=NumberMode.SLIDER,
-        available_fn=_upnp_or_bluetooth,
+        available_fn=_volume_available,
     ),
     VictrolaNumberEntityDescription(
         key="knob_brightness",
