@@ -1,9 +1,9 @@
 # Victrola Stream for Home Assistant — Implementation Plan
 
 ## Now
-- Step: cutting branch `feat/v1`; starting Task 1 (subagent-driven)
-- Next: Task 2 (typed values + sanitized fixtures)
-- Open: none
+- Step: Tasks 1–11 complete and reviewed on `feat/v1` (89 tests, zero warnings); Task 12 automated live suite dispatching (ledger: `.superpowers/sdd/2026-10-03-victrola-stream-ha/progress.md`, Ruling R13 splits Task 12)
+- Next: Task 12 Step 3 — live checklist with Doctor Biz at the turntable (controller runs it), then Task 13
+- Open: Doctor Biz's time at the turntable for the live checklist (~15 min)
 - Approved: Design sections 1–3: "Looks right" (2026-10-03)
 - Approved: Written spec: "let's build it. GO GO GO." (2026-10-03)
 - Approved: Plan + execution method: "Subagent-driven (Recommended)" (2026-10-03)
