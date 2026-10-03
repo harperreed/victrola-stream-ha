@@ -23,8 +23,6 @@ Install through [HACS](https://hacs.xyz/) as a custom repository:
 2. Add `https://github.com/harperreed/victrola-stream-ha`, category **Integration**.
 3. Install **Victrola Stream** and restart Home Assistant.
 
-This repository isn't published yet. The URL above is where it will live once it is.
-
 ## Setting it up
 
 Home Assistant discovers a turntable automatically over mDNS
