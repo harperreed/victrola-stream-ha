@@ -20,6 +20,15 @@ reference: `../victrola-stream-go/docs/victrola-nsdk-api.md` and
 - **Vinyl state is not in the player.** `player:player/data/value` stays empty while a
   record plays. Use `hostlink:motorDet` (platter motor) and
   `victrola:isConnectedToSonosGroup` (streaming session) instead.
+- **The platter motor stops before the Sonos session does.** `hostlink:motorDet` goes
+  `false` when the platter stops (a record change can produce a quick off/on pair). The
+  session itself ends exactly 3 minutes later: `victrola:isConnectedToSonosGroup` goes
+  `false` and all three `adchls:serverUrl*` nodes clear, both delivered as events.
+- **Changing `wirelessAudioDelay` (Sonos audio delay) restarts the Sonos session.** URLs
+  clear and the session drops and reconnects within about 5 seconds.
+- **`player:volume` tracks the Sonos group volume during a Sonos session.** Verified
+  live: writing 21 → 22 → 21 round-tripped with read-back and matching events. With no
+  session it reads 0.
 - **Role roots can't be listed.** `getRows` on `victrola:`, `player:`, `adchls:` returns
   `invalidPath`; `settings:/` can be walked. Live node names came from the firmware's
   `libnsdk_*.so` strings.
@@ -28,12 +37,14 @@ reference: `../victrola-stream-go/docs/victrola-nsdk-api.md` and
   not a 200 as older docs implied. `NsdkClient` checks every reply for an NSDK
   `{"error": {...}}` body regardless of status, mapping a name ending in `invalidPath` to
   `NsdkInvalidPath`; a non-200 reply with no error body becomes `NsdkConnectionError`.
-- **An idle device drops to network standby, and its stream URLs read empty.** After
-  about 10 idle minutes (`settings:/system/maxIdleTime` = 600), `powermanager:target`
-  reads `networkStandby` (reason `idleTimer`) and every `adchls:serverUrl*` node reads
-  `""`, as in `tests/fixtures/get_data.json`. The API still answers. Treat an empty URL
-  as "no stream right now", not an error. How the device wakes is still to be checked
-  live.
+- **Stream URLs read empty whenever no streaming session is active, not only in
+  standby.** They exist only while a session runs, and arrive as events — read them
+  fresh after every (re)connect, never cached. Standby is one way to have no session:
+  after about 10 idle minutes (`settings:/system/maxIdleTime` = 600),
+  `powermanager:target` reads `networkStandby` (reason `idleTimer`) and every
+  `adchls:serverUrl*` node reads `""`, as in `tests/fixtures/get_data.json`. The API
+  still answers. Treat an empty URL as "no stream right now", not an error. How the
+  device wakes is still to be checked live.
 - **An unknown or expired queue id answers HTTP 400 in plain text, not an NSDK error
   body.** Live probe 2026-10-03: `GET /api/event/pollQueue?queueId={00000000-0000-0000-
   0000-000000000000}&timeout=1` (a never-issued id) returned `400 Bad Request`,
@@ -46,6 +57,9 @@ reference: `../victrola-stream-go/docs/victrola-nsdk-api.md` and
   ...}}`), and `tests/test_nsdk_events.py`'s matching test now expects
   `NsdkConnectionError`, not `NsdkError` (it was asserting the placeholder's made-up
   shape, not the device's real one).
+- **An event queue left unpolled expires on its own, within 14 minutes.** It then
+  answers `pollQueue` the same way as a never-issued id: HTTP 400, `Unknown queue id!`.
+  Don't assume a subscribed queue id stays valid indefinitely.
 - **`network:wirelessRssi` pushed zero events over ~65 s when idle.** Live probe
   2026-10-03: subscribed to `network:wirelessRssi` alone and polled `timeout=5` for
   13 cycles (~65 s) with the device stationary on a stable Wi-Fi link; no event arrived.
@@ -85,3 +99,6 @@ reference: `../victrola-stream-go/docs/victrola-nsdk-api.md` and
   changing the device too. When a value changes and we didn't cause it, ask "did you
   change X?" before building a theory on it. (The "UPnP mode falls back to Sonos" theory
   was just Doctor Biz flipping it back.)
+- **Never write real private values into tracked files.** LAN IPs, Wi-Fi names,
+  serials, MACs — not even inside a privacy-grep pattern meant to catch them. Keep them
+  in the untracked `privacy-terms.local.md` and scan all history before publishing.

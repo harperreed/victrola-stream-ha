@@ -43,15 +43,15 @@ address. The integration keeps the same entities; it just points them at the new
 |---|---|---|---|
 | Wi-Fi signal | sensor | Diagnostic | Signal strength, in dBm. |
 | Power state | sensor | Diagnostic | `Online` or `Network standby`. |
-| Stream URL (HLS) | sensor | Diagnostic | Current HLS playlist URL. Empty in standby. |
-| Stream URL (MP3) | sensor | Diagnostic | Current MP3 stream URL. Empty in standby. |
-| Stream URL (FLAC) | sensor | Diagnostic | Current Ogg-FLAC stream URL. Empty in standby. |
+| Stream URL (HLS) | sensor | Diagnostic | Current HLS playlist URL. Empty with no streaming session. |
+| Stream URL (MP3) | sensor | Diagnostic | Current MP3 stream URL. Empty with no streaming session. |
+| Stream URL (FLAC) | sensor | Diagnostic | Current Ogg-FLAC stream URL. Empty with no streaming session. |
 | Platter spinning | binary_sensor | | On while the platter motor turns. |
-| Streaming | binary_sensor | | On during a Sonos or UPnP streaming session. Unavailable in Roon or Bluetooth output. |
+| Streaming | binary_sensor | | On during a Sonos streaming session. Unavailable outside Sonos output; UPnP support is planned for v2. |
 | Mute | switch | | |
 | Autoplay | switch | Config | |
 | RCA fixed volume | switch | Config | |
-| Volume | number | | 0–100. Unavailable outside UPnP or Bluetooth output. |
+| Volume | number | | 0–100. Follows the Sonos group volume during a Sonos session; also works in UPnP or Bluetooth output. Unavailable otherwise. |
 | Knob brightness | number | Config | 0–100. |
 | RCA delay | number | Config | 0–500 ms. |
 | Output | select | | Sonos, UPnP, Roon or Bluetooth. |
@@ -77,9 +77,9 @@ it, pick the turntable, then pick a format:
   `.flac` file, for players that take Ogg.
 
 Each format's URL is read from the turntable at the moment you press play, never
-cached, because the turntable picks new stream ports on every reconnect. Audio only
-flows while a record is playing. In standby there is no stream to connect to — the
-media source can't resolve one — until the turntable wakes (see Limitations).
+cached, because the turntable picks new stream ports on every reconnect. A URL exists
+only while a streaming session runs; with none running — standby is one case — the
+media source can't resolve one (see Limitations).
 
 ## Automation examples
 
@@ -131,11 +131,17 @@ turntable → Live (MP3).
 - **"Platter spinning" watches the motor, not the needle.** It reports the turntable's
   motor sensor, so it's on whenever the platter turns, even if you lift the needle
   without stopping it.
-- **Volume is unavailable in Sonos output mode.** Sonos-side volume control is future
-  work. Control it from the Sonos app or a Sonos media player entity instead.
-- **The turntable sleeps.** After about 10 idle minutes it drops into network standby.
-  The API keeps answering, but the stream URL sensors read empty and the media browser
-  has nothing to resolve until it wakes.
+- **Streaming is unavailable in UPnP output.** UPnP streaming state is planned for v2;
+  for now the binary sensor only works in Sonos output.
+- **Volume works in Sonos output only while a session is streaming.** It follows the
+  Sonos group volume for that session. With no session running it goes unavailable,
+  the same as Roon output; UPnP and Bluetooth output are always available.
+- **Changing Sonos audio delay briefly restarts the stream.** Picking a new option on
+  the Sonos audio delay control drops the session and reconnects it, about a 5-second
+  dropout.
+- **The turntable sleeps.** After about 10 idle minutes it drops into network standby,
+  one way among others to have no streaming session: the API keeps answering, but the
+  Live media items and stream URL sensors have no URL until a session starts again.
 - **FLAC is Ogg-wrapped.** `audio/ogg`, not `audio/flac`; some players refuse it. MP3
   works with the widest set of players.
 - **Local only.** Everything happens on your network. No cloud account, no app, no

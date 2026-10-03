@@ -51,28 +51,29 @@ before the code that depends on it ships.
 | `GET /api/getRows?path=…&roles=@all&from=0&to=N&type=structure` returns `{"rows":[…],"rowsCount":N}` | ✅ |
 | Event queue: `POST /api/event/modifyQueue {"queueId":"","subscribe":[{"path":P,"type":"itemWithValue"}],"unsubscribe":[]}` returns a JSON string `"{uuid}"`; `GET /api/event/pollQueue?queueId=…&timeout=<seconds>` returns `[]` at timeout or `[{"itemType":"update","path":P,"itemValue":{…},"rowsEvents":[]}]` | ✅ |
 | `pollQueue` timeout is in **seconds** (`5` → 5.3 s, `2` → 2.1 s) | ✅ |
-| How long a queue lives without polls; what unsubscribe does; `rows`-type subscriptions | ❓ |
+| An abandoned queue (left unpolled) expires: `pollQueue` then answers HTTP 400 `Unknown queue id!` within 14 minutes | ✅ |
+| What `unsubscribe` does; `rows`-type subscriptions | ❓ |
 | Identity: `settings:/system/serialNumber` (equals the mDNS TXT `serial`), `primaryMacAddress`, `manufacturer` = `Victrola`, `productName` = `Victrola Stream`, `settings:/deviceName`, `settings:/version`, `hostlink:hostFirmwareVersion` | ✅ |
 | mDNS `_sues800device._tcp` on port 80 with TXT `name`, `serial`, `uuid`, `manufacturer=Victrola`, `ip` | ✅ (captured from `media-tools`) |
 | Stream URLs: `adchls:serverUrl` (HLS, `…:8143/pl.m3u8`), `adchls:serverUrl/mp3`, `adchls:serverUrl/flac` (Ogg-FLAC 24/48, `audio/ogg`) | ✅ |
 | Stream ports change on every boot (FLAC 38735 → 44323 across a reboot) | ✅ |
 | Stream servers answer even when idle but send no audio bytes until a record plays | ✅ |
-| An event when a stream URL changes | ❓ |
+| An event when a stream URL changes: clears when a session ends, returns (same ports) when one starts | ✅ |
 | `hostlink:motorDet` reads `true` while the platter spins and delivers events | ✅ |
-| `hostlink:motorDet` goes `false` when the platter stops | ❓ |
+| `hostlink:motorDet` goes `false` when the platter stops (a record change can give a quick off/on pair) | ✅ |
 | `victrola:isConnectedToSonosGroup` reads `true` during a Sonos session | ✅ |
-| It goes `false` when the session ends | ❓ |
+| It goes `false` exactly 3 minutes after the platter stops | ✅ |
 | `victrola:UpnpState` reads `{"pstUpnpState":"notPlaying"}` when idle | ✅ |
-| The `UpnpState` value while streaming in UPnP mode | ❓ |
+| The `UpnpState` value while streaming in UPnP mode | v2 |
 | Speakers: `getRows victrola:ui/speakerSelection` rows carry `id`, `type` (`victrolaOutputSonos`), `title`; the default carries `preferred: true` | ✅ |
 | Set the default: `activate victrola:ui/setDefaultOutput {"type":…,"id":…}` | ✅ (Go CLI build) |
 | Output toggles `settings:/victrola/{sonos,upnp,roon,bluetooth}Enabled` are exclusive; a typed write enabling UPnP disabled Sonos | ✅ |
 | Enum options: `forceLowBitrate` = `connectionQuality`/`soundQuality`/`losslessQuality`; `wirelessAudioDelay` (`adchlsLatency`) = `min`/`med`/`high`/`max`; `adchls/dacMode` = `switching`/`simultaneous` | ✅ (read) |
-| The typed write shape for enums (likely `{"type":"forceLowBitrate","forceLowBitrate":"soundQuality"}`) | ❓ (read the webclient's settings code first) |
+| The typed write shape for enums: confirmed `{"type":"adchlsLatency","adchlsLatency":"max"}` for `wirelessAudioDelay` — the type name matches the enum's own type, not a shared wrapper | ✅ |
 | Slider metadata: `lightBrightness` 0–100, `adchls/dacDelay` 0–500 ms | ✅ |
 | `player:volume` (0–100) bare-int write returns `true` | ✅ |
 | `player:volume` reads 0 in Sonos mode and 14 in UPnP mode | ✅ |
-| What `player:volume` does in Sonos mode, and the shapes of the `victrola:getSonosVolume`/`setSonosVolume` actions | ❓ 🔧 |
+| `player:volume` tracks the Sonos group volume during a session (write 21→22→21 confirmed with read-back and events); reads 0 with no session, so the `getSonosVolume`/`setSonosVolume` actions are unneeded | ✅ |
 | `powermanager:target` reads `{"target":"online",…}` | ✅ |
 | Reboot via `activate powermanager:goReboot true` | ✅ (Go CLI) |
 | `network:info` → `wireless.signalLevel` (dBm) | ✅ |
@@ -173,8 +174,8 @@ There's one HA device per turntable. Its name comes from `settings:/deviceName`.
 | Platform | Name | Node(s) | Category | Status |
 |---|---|---|---|---|
 | binary_sensor | Platter spinning (`running`) | `hostlink:motorDet` | — | read ✅, false ❓ |
-| binary_sensor | Streaming | Sonos mode: `victrola:isConnectedToSonosGroup`; UPnP mode: `victrola:UpnpState`; other modes: unavailable | — | Sonos ✅, end ❓, UPnP ❓ |
-| number | Volume (0–100) | UPnP/Bluetooth: `player:volume`; Sonos mode: `victrola:get/setSonosVolume` once verified, unavailable until then | — | UPnP ✅, Bluetooth ❓, Sonos ❓ |
+| binary_sensor | Streaming | Sonos mode: `victrola:isConnectedToSonosGroup`; other modes: unavailable (UPnP streaming state is v2) | — | Sonos ✅, end ✅ |
+| number | Volume (0–100) | `player:volume`; always in UPnP/Bluetooth, in Sonos mode only while `isConnectedToSonosGroup` is true | — | UPnP ✅, Bluetooth ❓, Sonos ✅ |
 | switch | Mute | `settings:/mediaPlayer/mute` | — | read ✅, typed write ❓ |
 | select | Output (Sonos, UPnP, Roon, Bluetooth) | the four `settings:/victrola/*Enabled` toggles | — | ✅ |
 | select | Default speaker | `speakerSelection` rows → `setDefaultOutput`; options are the Sonos groups, current = `preferred: true`; unavailable outside Sonos mode | — | ✅ |
