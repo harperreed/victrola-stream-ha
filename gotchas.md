@@ -23,6 +23,11 @@ reference: `../victrola-stream-go/docs/victrola-nsdk-api.md` and
 - **Role roots can't be listed.** `getRows` on `victrola:`, `player:`, `adchls:` returns
   `invalidPath`; `settings:/` can be walked. Live node names came from the firmware's
   `libnsdk_*.so` strings.
+- **A missing node answers HTTP 500, not 200.** `getData` on an unknown path (e.g.
+  `settings:/victrola/doesNotExist`) returns HTTP 500 with the `invalidPath` error body,
+  not a 200 as older docs implied. `NsdkClient` checks every reply for an NSDK
+  `{"error": {...}}` body regardless of status, mapping a name ending in `invalidPath` to
+  `NsdkInvalidPath`; a non-200 reply with no error body becomes `NsdkConnectionError`.
 
 ## Working with Doctor Biz
 
