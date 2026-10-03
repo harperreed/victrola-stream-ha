@@ -359,9 +359,11 @@ class NsdkClient:
                 if resp.status != 200:
                     raise NsdkConnectionError(f"HTTP {resp.status}: {body!r}")
                 return body
-        except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+        except (aiohttp.ClientError, TimeoutError, ValueError, RuntimeError) as err:
             # ValueError covers a JSON-decode failure (stdlib json.JSONDecodeError
             # and orjson's, both subclass it): a reply the client cannot parse is
             # the same "not a valid NSDK reply" bucket as a non-200 with no error
-            # body. Callers must only ever see NsdkError or NsdkConnectionError.
+            # body. RuntimeError covers aiohttp raising e.g. "Session is closed"
+            # when the session closes mid-request. Callers must only ever see
+            # NsdkError or NsdkConnectionError.
             raise NsdkConnectionError(str(err)) from err

@@ -394,8 +394,10 @@ async def test_push_loop_survives_an_unexpected_error(
         lambda: availability.append(coordinator.last_update_success)
     )
 
-    # Not a device reply: aiohttp raises this once its session is closed.
-    fake.poll_fault = RuntimeError("Session is closed")
+    # _send doesn't map this one to a contract error (unlike RuntimeError,
+    # now mapped to NsdkConnectionError) -- it still exercises the push
+    # loop's "unexpected error" branch.
+    fake.poll_fault = ConnectionResetError("Connection reset by peer")
 
     # The loop logs it, subscribes again, and takes events on the new queue.
     await wait_for(lambda: len(_polled_queue_ids(aioclient_mock)) == 2)
@@ -412,7 +414,7 @@ async def test_push_loop_survives_an_unexpected_error(
         and record.levelno >= logging.ERROR
         and record.exc_info
     ]
-    assert isinstance(logged.exc_info[1], RuntimeError)
+    assert isinstance(logged.exc_info[1], ConnectionResetError)
 
 
 async def test_async_write_updates_snapshot_from_readback(coordinator, fake):

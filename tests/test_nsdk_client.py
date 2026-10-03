@@ -96,6 +96,18 @@ async def test_error_body_with_null_name_raises_nsdk_error(client, fake):
     assert (exc_info.value.name, exc_info.value.message) == ("", "")
 
 
+async def test_poll_maps_runtime_error_to_connection_error(client, fake):
+    # Not a device reply: aiohttp itself raises this, e.g. "Session is
+    # closed", when the session closes mid-request. Callers besides the
+    # push loop (config flow, media source, entity writes) must see the
+    # same NsdkConnectionError contract as any other transport failure.
+    queue_id = await client.subscribe([const.NODE_AUTOPLAY])
+    fake.poll_fault = RuntimeError("Session is closed")
+
+    with pytest.raises(NsdkConnectionError):
+        await client.poll(queue_id, 1)
+
+
 async def test_read_nodes_transport_failure_raises_connection_error(client, fake):
     fake.offline = True
 
