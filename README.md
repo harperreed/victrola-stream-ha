@@ -61,19 +61,20 @@ address. The integration keeps the same entities; it just points them at the new
 | RCA mode | select | Config | Switching or Simultaneous. |
 | Restart | button | Config | Reboots the turntable. |
 
-Config and diagnostic entities are hidden from the device's default card; open the
-device page to see all of them.
+Home Assistant leaves config and diagnostic entities out of its auto-generated
+dashboards. The device page lists them in cards of their own.
 
 ## Playing the turntable elsewhere
 
 The turntable appears in Home Assistant's media browser under "Victrola Stream". Open
 it, pick the turntable, then pick a format:
 
-- **Live (HLS)** — `application/vnd.apple.mpegurl`. Works with almost any Home Assistant
-  media player.
-- **Live (MP3)** — `audio/mpeg`. Also works almost everywhere.
-- **Live (FLAC, Ogg)** — 24-bit/48 kHz, but wrapped as Ogg (`audio/ogg`), not a plain
-  `.flac` file. Some media players refuse Ogg; try HLS or MP3 if one does.
+- **Live (HLS)** — `application/vnd.apple.mpegurl`, for players that accept HLS. Players
+  that list only `audio/*` media, such as Sonos speakers and audio-only Cast devices,
+  don't show it.
+- **Live (MP3)** — `audio/mpeg`. MP3 works with the widest set of players; start here.
+- **Live (FLAC, Ogg)** — 24-bit/48 kHz, wrapped as Ogg (`audio/ogg`) rather than a plain
+  `.flac` file, for players that take Ogg.
 
 Each format's URL is read from the turntable at the moment you press play, never
 cached, because the turntable picks new stream ports on every reconnect. Audio only
@@ -100,7 +101,10 @@ automation:
           entity_id: light.turntable_lamp
 ```
 
-Play the turntable on another media player when it starts streaming:
+Play the turntable on another media player when it starts streaming. This plays the
+turntable's media source, not the Stream URL (MP3) sensor: the media source reads the
+URL at play time, while the sensor can still read unknown just after the turntable
+wakes from standby.
 
 ```yaml
 automation:
@@ -114,9 +118,13 @@ automation:
         target:
           entity_id: media_player.kitchen
         data:
-          media_content_id: "{{ states('sensor.turntable_stream_url_mp3') }}"
+          media_content_id: media-source://victrola_stream/<entry_id>/mp3
           media_content_type: music
 ```
+
+You don't need to look up `<entry_id>`: in the automation editor, the Play media
+action's media picker fills in the whole id when you pick Victrola Stream → your
+turntable → Live (MP3).
 
 ## Limitations
 
@@ -128,8 +136,8 @@ automation:
 - **The turntable sleeps.** After about 10 idle minutes it drops into network standby.
   The API keeps answering, but the stream URL sensors read empty and the media browser
   has nothing to resolve until it wakes.
-- **FLAC is Ogg-wrapped.** `audio/ogg`, not `audio/flac`; some players refuse it. HLS
-  and MP3 work with any player.
+- **FLAC is Ogg-wrapped.** `audio/ogg`, not `audio/flac`; some players refuse it. MP3
+  works with the widest set of players.
 - **Local only.** Everything happens on your network. No cloud account, no app, no
   telemetry.
 
