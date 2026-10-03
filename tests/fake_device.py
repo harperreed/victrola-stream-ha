@@ -36,8 +36,8 @@ class FakeVictrola:
     Built only from recorded fixtures and verified behaviour, never invented
     replies. Registers side effects for getData, getRows and setData on the
     given `aioclient_mock` (Task 4 adds the queue endpoints). The fault hooks
-    (offline, raw_replies, push_raw_event, poll_fault) send whatever a test
-    asks for instead.
+    (offline, poll_offline, raw_replies, push_raw_event, poll_fault) send
+    whatever a test asks for instead.
     """
 
     def __init__(
@@ -47,6 +47,9 @@ class FakeVictrola:
         self.values: dict[str, Any] = _load_fixture("get_data.json")
         self.rows: dict[str, Any] = _load_fixture("get_rows.json")
         self.offline = False
+        # Only pollQueue fails; getData/getRows/setData/modifyQueue keep
+        # working, as if the long-poll connection alone were resetting.
+        self.poll_offline = False
         self.ignore_writes: set[str] = set()
         self.reject_writes: set[str] = set()
         self.set_calls: list[dict[str, Any]] = []
@@ -145,6 +148,10 @@ class FakeVictrola:
         self, method: str, url: URL, data: Any
     ) -> AiohttpClientMockResponse:
         self._check_online()
+        if self.poll_offline:
+            raise aiohttp.ClientConnectionError(
+                "victrola stream device is offline for pollQueue"
+            )
         if self.poll_fault is not None:
             fault, self.poll_fault = self.poll_fault, None
             raise fault

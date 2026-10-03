@@ -195,9 +195,12 @@ class VictrolaCoordinator(DataUpdateCoordinator[VictrolaState]):
                     raise NsdkConnectionError(
                         f"full read after subscribing failed: {self.last_exception}"
                     )
-                backoff = BACKOFF_START_S
                 while True:
                     events = await self.client.poll(queue, POLL_TIMEOUT_S)
+                    # The pass has now proven it can poll, not just read: a
+                    # failure from here starts a fresh backoff, rather than
+                    # inheriting whatever a prior pass grew it to.
+                    backoff = BACKOFF_START_S
                     if events:
                         await self._apply(events)
             except asyncio.CancelledError:

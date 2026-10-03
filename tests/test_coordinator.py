@@ -348,6 +348,43 @@ async def test_failed_passes_leave_no_queue_subscribed(
     assert sorted(unsubscribed) == sorted(abandoned)
 
 
+class _FastSleepAsyncio:
+    """Proxies the real `asyncio` module but records sleeps instead of waiting.
+
+    Patched in as the coordinator module's own `asyncio` name (not the global
+    module), so only _push_loop's `await asyncio.sleep(...)` is affected;
+    everything else it touches (CancelledError, wait, ...) forwards to the
+    real module untouched.
+    """
+
+    def __init__(self, sleeps: list[float]) -> None:
+        self._sleeps = sleeps
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(asyncio, name)
+
+    async def sleep(self, delay: float, *args: Any, **kwargs: Any) -> None:
+        self._sleeps.append(delay)
+
+
+async def test_backoff_grows_when_poll_keeps_failing_after_a_good_read(
+    coordinator, fake, monkeypatch
+):
+    # Subscribe and the full read keep succeeding every pass; only poll
+    # fails, so backoff must grow pass over pass instead of resetting once
+    # the read succeeds (the old bug: a full read, then a 1 s retry, forever).
+    sleeps: list[float] = []
+    monkeypatch.setattr(f"{_COORDINATOR_MODULE}.asyncio", _FastSleepAsyncio(sleeps))
+    await coordinator.async_refresh()
+    fake.poll_offline = True
+
+    coordinator.async_start_push()
+
+    await wait_for(lambda: len(sleeps) >= 4)
+
+    assert sleeps[:4] == [0.01, 0.02, 0.04, 0.08]
+
+
 async def test_push_loop_survives_an_unexpected_error(
     coordinator, fake, aioclient_mock, caplog
 ):
