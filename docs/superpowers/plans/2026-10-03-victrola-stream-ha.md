@@ -1,11 +1,12 @@
 # Victrola Stream for Home Assistant — Implementation Plan
 
 ## Now
-- Step: plan written and self-reviewed; waiting for Doctor Biz's review
-- Next: Doctor Biz picks the execution method; then cut branch `feat/v1` and start Task 1
-- Open: plan review + execution method (subagent-driven or native)
+- Step: cutting branch `feat/v1`; starting Task 1 (subagent-driven)
+- Next: Task 2 (typed values + sanitized fixtures)
+- Open: none
 - Approved: Design sections 1–3: "Looks right" (2026-10-03)
 - Approved: Written spec: "let's build it. GO GO GO." (2026-10-03)
+- Approved: Plan + execution method: "Subagent-driven (Recommended)" (2026-10-03)
 - Compactions: 0
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
