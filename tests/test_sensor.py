@@ -1,6 +1,6 @@
 # ABOUTME: Tests for the sensor platform: Wi-Fi, power state, stream URLs, device card.
 # ABOUTME: Runs against FakeVictrola's recorded payloads; nothing of ours is mocked.
-from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 
@@ -39,21 +39,47 @@ def _flac_url_value() -> list[dict]:
 
 
 async def test_sensors_report_fixture_values(hass, fake):
-    # The recorded capture sat in network standby (R8): put the device online
-    # with a live stream URL, the shape it reports once it is.
+    # R8: the recorded capture sat in network standby with blank stream URLs.
+    # The fixture is untouched here; this is the device's actual recorded state.
+    entry = await setup_entry(hass, fake)
+    serial = fixture_serial(fake)
+
+    wifi_signal = hass.states.get(entity_id_for(hass, "sensor", serial, "wifi_signal"))
+    power_state = hass.states.get(entity_id_for(hass, "sensor", serial, "power_state"))
+    stream_url_hls = hass.states.get(
+        entity_id_for(hass, "sensor", serial, "stream_url_hls")
+    )
+    stream_url_mp3 = hass.states.get(
+        entity_id_for(hass, "sensor", serial, "stream_url_mp3")
+    )
+    stream_url_flac = hass.states.get(
+        entity_id_for(hass, "sensor", serial, "stream_url_flac")
+    )
+
+    assert wifi_signal.state == _FIXTURE_SIGNAL_LEVEL
+    assert power_state.state == "network_standby"
+    assert stream_url_hls.state == STATE_UNKNOWN
+    assert stream_url_mp3.state == STATE_UNKNOWN
+    assert stream_url_flac.state == STATE_UNKNOWN
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_sensors_report_online_values(hass, fake):
+    # R8: override the recorded standby snapshot with the device's online
+    # shape (real powerTarget/URL payloads), set before setup.
     fake.values[NODE_POWER] = _online_power_target()
     fake.values[URL_PATHS["flac"]] = _flac_url_value()
 
     entry = await setup_entry(hass, fake)
     serial = fixture_serial(fake)
 
-    wifi_signal = hass.states.get(entity_id_for(hass, "sensor", serial, "wifi_signal"))
     power_state = hass.states.get(entity_id_for(hass, "sensor", serial, "power_state"))
     stream_url_flac = hass.states.get(
         entity_id_for(hass, "sensor", serial, "stream_url_flac")
     )
 
-    assert wifi_signal.state == _FIXTURE_SIGNAL_LEVEL
     assert power_state.state == "online"
     assert stream_url_flac.state.endswith("/stream.flac")
 
