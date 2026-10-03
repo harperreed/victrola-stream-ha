@@ -4,7 +4,11 @@ import json
 
 from homeassistant.helpers.discovery_flow import DiscoveryKey
 
-from custom_components.victrola_stream.const import NODE_KNOB_BRIGHTNESS, NODE_MAC
+from custom_components.victrola_stream.const import (
+    NODE_DEVICE_NAME,
+    NODE_KNOB_BRIGHTNESS,
+    NODE_MAC,
+)
 from custom_components.victrola_stream.diagnostics import (
     async_get_config_entry_diagnostics,
 )
@@ -27,12 +31,14 @@ async def test_diagnostics_redacts_private_values(hass, fake):
     entry = await setup_entry(hass, fake)
     serial = fixture_serial(fake)
     mac = fake.values[NODE_MAC][0]["string_"]
+    device_name = fake.values[NODE_DEVICE_NAME][0]["string_"]  # often a room name
 
     result = await async_get_config_entry_diagnostics(hass, entry)
     dumped = json.dumps(result)
 
     assert serial not in dumped
     assert mac not in dumped
+    assert device_name not in dumped
     assert _FIXTURE_MAC_PREFIX not in dumped
     assert _FIXTURE_SSID not in dumped
     assert _FIXTURE_SPEAKER_ID not in dumped

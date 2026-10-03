@@ -8,14 +8,16 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from .const import NODE_MAC, NODE_SERIAL, URL_PATHS
+from .const import NODE_DEVICE_NAME, NODE_MAC, NODE_SERIAL, URL_PATHS
 from .coordinator import VictrolaConfigEntry, VictrolaState
 
 TO_REDACT = frozenset(
     {
-        # Node paths whose value identifies this device or its network.
+        # Node paths whose value identifies this device or its network. The
+        # device name is often a room name, like the entry title.
         NODE_SERIAL,
         NODE_MAC,
+        NODE_DEVICE_NAME,
         "settings:/system/memberId",
         *URL_PATHS.values(),
         # Nested keys inside network:info and the speaker rows.
