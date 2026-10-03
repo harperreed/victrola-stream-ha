@@ -1,14 +1,14 @@
 # Victrola Stream for Home Assistant — Implementation Plan
 
 ## Now
-- Step: Task 14 Step 4, CI on the private repo (run 37159484167): tests ✅, hassfest ✅, hacs ❌ 2 of 9 checks. Both failures come from the private visibility, not the repo. HACS fetches `hacs.json` and `manifest.json` from `raw.githubusercontent.com` with no token (`async_download_file` in hacs/integration), a private repo answers 404, and the validators get `None`. Both files match HACS's schemas (`HACS_MANIFEST_JSON_SCHEMA`, `INTEGRATION_MANIFEST_JSON_SCHEMA`), and the other 7 checks passed.
-- Next: flip the repo public (approved below), push `main`, see all three CI jobs green, then Step 5 (tag `v0.1.0`, release). The tag waits for a green HACS run because HACS installs the latest release.
-- Done: `feat/v1` and `chore/publish-prep` merged into `main`; history rewritten (C1); repo `harperreed/victrola-stream-ha` created private and `main` pushed; topics added; a fresh clone of GitHub's copy holds 51 commits and 0 private-term hits in files or commit messages
+- Step: Task 14 done. The repo is public; CI passed all three jobs on `main` (runs 37161698410 and 37161738689, HACS 9 of 9 checks); `v0.1.0` is tagged at `87449b4` and released as latest.
+- Next: none. The plan has landed.
+- Done: `feat/v1` and `chore/publish-prep` merged into `main`; history rewritten (C1); repo `harperreed/victrola-stream-ha` created private and `main` pushed; topics added; a fresh clone of GitHub's copy held 51 commits and 0 private-term hits in files or commit messages. The private-repo CI run (37159484167) failed HACS 2 of 9 checks only because of the visibility (see `gotchas.md`, Publishing). The README's "isn't published yet" note was dropped before the tag.
 - Approved: Integration choice: "1" — merge back to main locally (2026-10-03)
 - Approved: Publish prep (Task 14 + the history rewrite + the two 🟡 fixes): "let's get it ready for publishing. create the repo at harperreed/" (2026-10-03)
 - Approved: Visibility: "Private, then public (Recommended)" — create private, CI green, verify history on GitHub's copy, flip public only on Doctor Biz's word (2026-10-03)
 - Approved: Public flip: "Flip public now (Recommended)" — flip, push `main`, all three CI jobs green, then tag `v0.1.0` and publish the release (2026-10-03)
-- Open: none
+- Open: Task 14 Step 5's last item, a HACS UI install as a custom repository, needs Doctor Biz's Home Assistant instance
 - Approved: Live checklist: "let's try it live" (2026-10-03); UPnP: "let's wrap up and leave upnp for v2" (2026-10-03)
 - Live checklist results (2026-10-03, Onyx, Sonos mode): motorDet false on platter stop ✅ (16:11:19; an off/on pair at 16:07 during a record change); Sonos session end ✅ exactly 3 min after the stop (isConnectedToSonosGroup false, stream URLs cleared by event); typed writes ✅ with read-back and events for wirelessAudioDelay (enum), mute, autoplay and player:volume; player:volume tracks the Sonos group during a session (Doctor Biz; write 21→22→21 confirmed); changing wirelessAudioDelay restarts the session (~5 s dropout, URLs return with the same ports); an abandoned event queue expired within 14 min (HTTP 400 "Unknown queue id!"); UPnP streaming state → v2
 - Approved: Design sections 1–3: "Looks right" (2026-10-03)

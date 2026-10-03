@@ -90,6 +90,15 @@ reference: `../victrola-stream-go/docs/victrola-nsdk-api.md` and
   `asyncio.IncompleteReadError`) accumulates across reads until it actually has the
   full 64 KiB or the deadline passes.
 
+## Publishing
+
+- **HACS validation can't read a private repo.** While the repo was private,
+  `hacs/action` failed 2 of 9 checks: `hacsjson` ("invalid 'hacs.json' file") and
+  `integration_manifest` ("expected a dictionary. Got None"). HACS downloads those two
+  files from `raw.githubusercontent.com` with no token (`async_download_file` in
+  hacs/integration), and a private repo answers 404. Not a repo defect: all 9 passed as
+  soon as the repo went public, with only plan-doc commits in between (2026-10-03).
+
 ## Working with Doctor Biz
 
 - **No port scans.** Don't port-scan devices on the LAN. Use protocol discovery (SSDP,
