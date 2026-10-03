@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Flat turntable glyph: platter, spindle and tonearm. Generic; not Victrola trademark art. -->
+  <rect width="256" height="256" rx="28" fill="#17333b"/>
+  <circle cx="112" cy="144" r="92" fill="#20262c"/>
+  <circle cx="112" cy="144" r="34" fill="#e2a33f"/>
+  <circle cx="112" cy="144" r="7" fill="#eef1f3"/>
+  <line x1="198" y1="58" x2="146" y2="118" stroke="#c7ccd1" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="198" cy="58" r="16" fill="#c7ccd1"/>
+  <circle cx="146" cy="118" r="9" fill="#9aa0a6"/>
+</svg>
