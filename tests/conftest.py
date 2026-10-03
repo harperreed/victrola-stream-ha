@@ -21,8 +21,7 @@ _WAIT_STEP_S = 0.01
 async def wait_for(predicate: Callable[[], object], timeout: float = 2.0) -> None:  # noqa: ASYNC109
     """Poll predicate() every 0.01 s until it holds; fail the test after timeout s.
 
-    Counts steps rather than reading a clock, so a test that freezes time
-    still times out.
+    Don't call this under a frozen clock.
     """
     for _ in range(round(timeout / _WAIT_STEP_S)):
         if predicate():
