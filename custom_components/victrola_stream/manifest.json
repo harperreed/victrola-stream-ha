@@ -1,0 +1,20 @@
+{
+  "domain": "victrola_stream",
+  "name": "Victrola Stream",
+  "version": "0.1.0",
+  "documentation": "https://github.com/harperreed/victrola-stream-ha",
+  "issue_tracker": "https://github.com/harperreed/victrola-stream-ha/issues",
+  "codeowners": ["@harperreed"],
+  "requirements": [],
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "config_flow": true,
+  "zeroconf": [
+    {
+      "type": "_sues800device._tcp.local.",
+      "properties": {
+        "manufacturer": "victrola"
+      }
+    }
+  ]
+}

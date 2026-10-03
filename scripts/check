@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# ABOUTME: Canonical check for victrola-stream-ha: lint, format check, and tests.
+# ABOUTME: Run before every commit; prints OK only when everything passes.
+set -euo pipefail
+
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest -q
+
+echo "OK"
