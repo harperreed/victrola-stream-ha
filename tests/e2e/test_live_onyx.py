@@ -144,10 +144,10 @@ async def test_live_brightness_roundtrip(
 async def test_live_stream_urls_answer(hass: HomeAssistant, victrola_host: str) -> None:
     """Every populated stream URL answers with its documented content type.
 
-    gotchas.md: after ~10 idle minutes the device sits in network standby and
-    every adchls:serverUrl* node reads "" -- an empty URL is "no stream right
-    now", not an error, so each format skips rather than fails when standby
-    is caught mid-loop.
+    gotchas.md: every adchls:serverUrl* node reads "" whenever no streaming
+    session is active -- network standby after ~10 idle minutes is one case,
+    not the only one. An empty URL is "no stream right now", not an error, so
+    each format skips rather than fails when that is caught mid-loop.
     """
     entry = await setup_live_entry(hass, victrola_host)
     try:
@@ -157,7 +157,7 @@ async def test_live_stream_urls_answer(hass: HomeAssistant, victrola_host: str) 
         for fmt, expected_type in _EXPECTED_CONTENT_TYPES.items():
             url = entry.runtime_data.data.stream_url(fmt)
             if not url:
-                pytest.skip(f"device in standby: no {fmt} stream right now")
+                pytest.skip(f"no streaming session right now: no {fmt} stream")
             async with session.get(url) as resp:
                 assert resp.status == 200
                 assert resp.content_type == expected_type
@@ -189,9 +189,10 @@ async def test_live_media_source_resolves_current_url(
 ) -> None:
     """Resolving the flac source matches a fresh adchls:serverUrl/flac read.
 
-    In standby that fresh read is "" and media_source.py raises Unresolvable
-    (gotchas.md: an empty URL means no stream right now, not an error) --
-    pin both branches live rather than skip the standby one.
+    With no streaming session right now that fresh read is "" and
+    media_source.py raises Unresolvable (gotchas.md: an empty URL means no
+    stream right now, not an error) -- pin both branches live rather than
+    skip the no-session one.
     """
     await async_setup_component(hass, "media_source", {})
     entry = await setup_live_entry(hass, victrola_host)
