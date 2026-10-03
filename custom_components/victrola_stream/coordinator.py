@@ -152,6 +152,15 @@ class VictrolaCoordinator(DataUpdateCoordinator[VictrolaState]):
             except (NsdkError, NsdkConnectionError) as err:
                 _LOGGER.debug("Could not unsubscribe event queue %s: %s", queue_id, err)
 
+    async def async_shutdown(self) -> None:
+        """Stop the push loop and unsubscribe, then let the base class finish up.
+
+        Idempotent: async_stop_push already tolerates a second call, and the
+        base class guards its own teardown the same way.
+        """
+        await self.async_stop_push()
+        await super().async_shutdown()
+
     async def async_write(self, path: str, value: NsdkValue) -> None:
         """Write a typed value; the snapshot takes the device's read-back."""
         readback = await self.client.set_typed(path, value)

@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to your Victrola Stream",
+        "data": {
+          "host": "Host"
+        },
+        "data_description": {
+          "host": "The IP address or hostname of the turntable."
+        }
+      },
+      "zeroconf_confirm": {
+        "title": "Discovered Victrola Stream",
+        "description": "Do you want to set up {name}?"
+      },
+      "reconfigure": {
+        "title": "Update the Victrola Stream connection",
+        "data": {
+          "host": "Host"
+        },
+        "data_description": {
+          "host": "The IP address or hostname of the turntable."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the device.",
+      "not_victrola": "This device is not a Victrola Stream."
+    },
+    "abort": {
+      "already_configured": "Device is already configured.",
+      "not_victrola": "This device is not a Victrola Stream.",
+      "cannot_connect": "Failed to connect to the device.",
+      "wrong_device": "This host belongs to a different Victrola Stream device.",
+      "reconfigure_successful": "Reconfiguration was successful."
+    }
+  }
+}
