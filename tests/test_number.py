@@ -1,5 +1,6 @@
 # ABOUTME: Tests for the number platform: volume, knob brightness and RCA delay.
 # ABOUTME: Runs against FakeVictrola's recorded payloads; nothing of ours is mocked.
+from homeassistant.components.number import NumberMode
 from homeassistant.const import STATE_UNAVAILABLE
 
 from custom_components.victrola_stream.const import (
@@ -24,6 +25,17 @@ async def test_number_sends_typed_int(hass, fake):
         "value": {"type": "i32_", "i32_": 17},
     }
     assert hass.states.get(entity_id).state == "17"
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_rca_delay_is_a_slider(hass, fake):
+    # The device's own settings metadata marks adchls/dacDelay a slider.
+    entry = await setup_entry(hass, fake)
+    entity_id = entity_id_for(hass, "number", fixture_serial(fake), "rca_delay")
+
+    assert hass.states.get(entity_id).attributes["mode"] == NumberMode.SLIDER
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

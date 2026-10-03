@@ -63,6 +63,7 @@ NUMBER_DESCRIPTIONS: tuple[VictrolaNumberEntityDescription, ...] = (
         native_max_value=500,
         native_step=1,
         native_unit_of_measurement=UnitOfTime.MILLISECONDS,
+        mode=NumberMode.SLIDER,
         entity_category=EntityCategory.CONFIG,
     ),
 )
