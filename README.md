@@ -55,7 +55,7 @@ address. The integration keeps the same entities; it just points them at the new
 | Knob brightness | number | Config | 0–100. |
 | RCA delay | number | Config | 0–500 ms. |
 | Output | select | | Sonos, UPnP, Roon or Bluetooth. |
-| Default speaker | select | | The Sonos group to stream to. Unavailable outside Sonos output. |
+| Default speaker | select | | The Sonos group to stream to. Unavailable outside Sonos output, or when no Sonos groups are found. |
 | Streaming quality | select | Config | Prioritize connection, Standard, or Prioritize audio quality. |
 | Sonos audio delay | select | Config | Min, Med, High or Max. |
 | RCA mode | select | Config | Switching or Simultaneous. |
@@ -77,10 +77,13 @@ it, pick the turntable, then pick a format:
 
 Each format's URL is read from the turntable at the moment you press play, never
 cached, because the turntable picks new stream ports on every reconnect. Audio only
-flows while a record is actually playing; in standby the stream carries no audio at
-all (see Limitations).
+flows while a record is playing. In standby there is no stream to connect to — the
+media source can't resolve one — until the turntable wakes (see Limitations).
 
 ## Automation examples
+
+These use `turntable` as a placeholder device slug; Home Assistant builds your real
+entity IDs from your turntable's own name plus each entity's name, so yours will differ.
 
 Turn on a light while the platter spins:
 
@@ -97,19 +100,22 @@ automation:
           entity_id: light.turntable_lamp
 ```
 
-Notify a phone when the turntable starts streaming:
+Play the turntable on another media player when it starts streaming:
 
 ```yaml
 automation:
-  - alias: Notify when the turntable starts streaming
+  - alias: Play the turntable in the kitchen when it starts streaming
     triggers:
       - trigger: state
         entity_id: binary_sensor.turntable_streaming
         to: "on"
     actions:
-      - action: notify.mobile_app_phone
+      - action: media_player.play_media
+        target:
+          entity_id: media_player.kitchen
         data:
-          message: The turntable is streaming.
+          media_content_id: "{{ states('sensor.turntable_stream_url_mp3') }}"
+          media_content_type: music
 ```
 
 ## Limitations
