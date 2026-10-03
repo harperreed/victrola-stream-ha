@@ -204,12 +204,21 @@ class VictrolaCoordinator(DataUpdateCoordinator[VictrolaState]):
                         await self._apply(events)
             except asyncio.CancelledError:
                 raise
-            except (NsdkError, NsdkConnectionError) as err:
+            except Exception as err:  # any failure, expected or not, retries
+                if isinstance(err, (NsdkError, NsdkConnectionError)):
+                    _LOGGER.debug(
+                        "Push loop failed (%s); retrying in %s s", err, backoff
+                    )
+                else:
+                    # A bug, or an error the client failed to map. Say so loudly,
+                    # but don't let it end the loop and leave entities available.
+                    _LOGGER.exception(
+                        "Push loop failed unexpectedly; retrying in %s s", backoff
+                    )
                 self._queue_id = None
                 # Entities go unavailable now, not at the next full read.
                 self.async_set_update_error(err)
                 resync = True
-                _LOGGER.debug("Push loop failed (%s); retrying in %s s", err, backoff)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, BACKOFF_MAX_S)
 

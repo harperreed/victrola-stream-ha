@@ -19,6 +19,11 @@ _FLOAT_TYPES = frozenset({"double_", "flt_"})
 _STR_TYPES = frozenset({"string_"})
 
 
+def _str_or_none(value: Any) -> str | None:
+    """value if it is a string, else None: the device's JSON is not trusted."""
+    return value if isinstance(value, str) else None
+
+
 @dataclass(frozen=True, slots=True)
 class NsdkValue:
     """One NSDK typed value, e.g. {"type": "i32_", "i32_": 10}."""
@@ -28,10 +33,10 @@ class NsdkValue:
 
     @classmethod
     def from_json(cls, obj: Any) -> NsdkValue:
-        """Map {}, None, and a missing type to EMPTY, else unwrap {"type": T, T: v}."""
-        if not obj:
+        """Unwrap {"type": T, T: v}. Any other JSON, {} and None too, is EMPTY."""
+        if not isinstance(obj, dict):
             return EMPTY
-        value_type = obj.get("type")
+        value_type = _str_or_none(obj.get("type"))
         if not value_type:
             return EMPTY
         return cls(value_type, obj.get(value_type))
@@ -89,11 +94,12 @@ class NsdkRow:
 
     @classmethod
     def from_json(cls, obj: dict[str, Any]) -> NsdkRow:
+        """Parse one row object; a field of the wrong type reads as absent."""
         return cls(
-            title=_clean_title(obj.get("title") or ""),
-            type=obj.get("type"),
-            path=obj.get("path"),
-            id=obj.get("id"),
+            title=_clean_title(_str_or_none(obj.get("title")) or ""),
+            type=_str_or_none(obj.get("type")),
+            path=_str_or_none(obj.get("path")),
+            id=_str_or_none(obj.get("id")),
             value=NsdkValue.from_json(obj.get("value")),
             preferred=obj.get("preferred") is True,
         )
@@ -109,16 +115,18 @@ class NsdkEvent:
 
     @classmethod
     def from_json(cls, obj: dict[str, Any]) -> NsdkEvent:
-        """Parse one pollQueue list item.
+        """Parse one pollQueue list item, an object.
 
-        Never raises: a malformed item just parses with an empty path or
-        item_type, the same tolerance NsdkRow.from_json gives a malformed
-        row. The list-shape check lives in NsdkClient.poll.
+        Never raises: a field of the wrong type reads as absent, so a malformed
+        item parses with an empty path or item_type, and an itemValue that is
+        not a typed value parses as EMPTY. That is the same tolerance
+        NsdkRow.from_json gives a malformed row. NsdkClient.poll checks that
+        the reply is a list of objects.
         """
         item_value = obj.get("itemValue")
         return cls(
-            path=obj.get("path") or "",
-            item_type=obj.get("itemType") or "",
+            path=_str_or_none(obj.get("path")) or "",
+            item_type=_str_or_none(obj.get("itemType")) or "",
             value=NsdkValue.from_json(item_value) if item_value is not None else None,
         )
 
@@ -170,8 +178,8 @@ def _error_from_body(body: Any) -> NsdkError | None:
     error = body.get("error")
     if not isinstance(error, dict):
         return None
-    name = error.get("name", "")
-    message = error.get("message", "")
+    name = str(error.get("name") or "")
+    message = str(error.get("message") or "")
     if name.endswith("invalidPath"):
         return NsdkInvalidPath(name, message)
     return NsdkError(name, message)
@@ -253,7 +261,8 @@ class NsdkClient:
             raise NsdkConnectionError(
                 f"getRows {path}: expected an object with 'rows', got {body!r}"
             )
-        return [NsdkRow.from_json(row) for row in body["rows"]]
+        # A row that isn't an object names nothing; drop it.
+        return [NsdkRow.from_json(row) for row in body["rows"] if isinstance(row, dict)]
 
     async def set_typed(self, path: str, value: NsdkValue) -> NsdkValue:
         """Write a typed value, then read the node back to confirm it took.
@@ -297,8 +306,10 @@ class NsdkClient:
             {"queueId": queue_id, "timeout": timeout_s},
             request_timeout=aiohttp.ClientTimeout(total=timeout_s + 10),
         )
-        if not isinstance(body, list):
-            raise NsdkConnectionError(f"pollQueue: expected a list, got {body!r}")
+        if not isinstance(body, list) or not all(isinstance(i, dict) for i in body):
+            raise NsdkConnectionError(
+                f"pollQueue: expected a list of objects, got {body!r}"
+            )
         return [NsdkEvent.from_json(item) for item in body]
 
     async def unsubscribe(self, queue_id: str, paths: Iterable[str]) -> None:

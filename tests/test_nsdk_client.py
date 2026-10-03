@@ -1,10 +1,13 @@
 # ABOUTME: Tests for NsdkClient against FakeVictrola: reads, typed writes, rows.
 # ABOUTME: Pins read-back confirmation and the unescaped-path-character query format.
+import copy
+
 import pytest
 
 from custom_components.victrola_stream import const
 from custom_components.victrola_stream.nsdk import (
     NsdkConnectionError,
+    NsdkError,
     NsdkInvalidPath,
     NsdkValue,
     NsdkWriteRejected,
@@ -67,6 +70,30 @@ async def test_get_rows_wrong_shape_raises_connection_error(client, fake):
 
     with pytest.raises(NsdkConnectionError):
         await client.get_rows(const.SPEAKERS_PATH)
+
+
+async def test_get_value_that_is_not_a_typed_object_reads_as_empty(client, fake):
+    fake.values[const.NODE_AUTOPLAY] = ["garbage"]
+
+    assert (await client.get_value(const.NODE_AUTOPLAY)).is_empty
+
+
+async def test_get_rows_drops_rows_that_are_not_objects(client, fake):
+    recorded = await client.get_rows(const.SPEAKERS_PATH)
+    body = copy.deepcopy(fake.rows[const.SPEAKERS_PATH])
+    body["rows"] = ["garbage", None, 7, *body["rows"]]
+    fake.rows[const.SPEAKERS_PATH] = body
+
+    assert await client.get_rows(const.SPEAKERS_PATH) == recorded
+
+
+async def test_error_body_with_null_name_raises_nsdk_error(client, fake):
+    fake.values[const.NODE_AUTOPLAY] = {"error": {"name": None, "message": None}}
+
+    with pytest.raises(NsdkError) as exc_info:
+        await client.get_value(const.NODE_AUTOPLAY)
+
+    assert (exc_info.value.name, exc_info.value.message) == ("", "")
 
 
 async def test_read_nodes_transport_failure_raises_connection_error(client, fake):

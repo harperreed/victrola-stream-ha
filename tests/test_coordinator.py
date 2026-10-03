@@ -215,6 +215,18 @@ async def test_push_applies_event(coordinator, fake):
     await wait_for(lambda: coordinator.data.value(NODE_MOTOR).as_bool() is True)
 
 
+async def test_malformed_event_does_not_stop_the_push_loop(coordinator, fake, caplog):
+    event = _recorded_event(NODE_MOTOR)
+    await _start_push(coordinator, fake)
+
+    # An itemValue that is a bare string, not a typed value; then a real event.
+    fake.push_raw_event({**event, "itemValue": "garbage"})
+    fake.push_event(event["path"], event["itemValue"])
+
+    await wait_for(lambda: coordinator.data.value(NODE_MOTOR).as_bool() is True)
+    assert _coordinator_errors(caplog) == []
+
+
 async def test_output_toggle_event_rereads_speakers(coordinator, fake):
     await _start_push(coordinator, fake)
     assert coordinator.data.speakers
@@ -290,6 +302,37 @@ async def test_reconnect_retries_a_failed_full_read(
         )
     )
     assert _coordinator_errors(caplog) == [_OFFLINE_ERROR]
+
+
+async def test_push_loop_survives_an_unexpected_error(
+    coordinator, fake, aioclient_mock, caplog
+):
+    await _start_push(coordinator, fake)
+    await wait_for(lambda: _polled_queue_ids(aioclient_mock))
+    availability: list[bool] = []
+    coordinator.async_add_listener(
+        lambda: availability.append(coordinator.last_update_success)
+    )
+
+    # Not a device reply: aiohttp raises this once its session is closed.
+    fake.poll_fault = RuntimeError("Session is closed")
+
+    # The loop logs it, subscribes again, and takes events on the new queue.
+    await wait_for(lambda: len(_polled_queue_ids(aioclient_mock)) == 2)
+    event = _recorded_event(NODE_MOTOR)
+    fake.push_event(event["path"], event["itemValue"])
+    await wait_for(lambda: coordinator.data.value(NODE_MOTOR).as_bool() is True)
+
+    assert False in availability  # its entities went unavailable meanwhile
+    assert coordinator.last_update_success
+    (logged,) = [
+        record
+        for record in caplog.records
+        if record.name == _COORDINATOR_MODULE
+        and record.levelno >= logging.ERROR
+        and record.exc_info
+    ]
+    assert isinstance(logged.exc_info[1], RuntimeError)
 
 
 async def test_async_write_updates_snapshot_from_readback(coordinator, fake):

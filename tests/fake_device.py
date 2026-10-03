@@ -35,7 +35,9 @@ class FakeVictrola:
 
     Built only from recorded fixtures and verified behaviour, never invented
     replies. Registers side effects for getData, getRows and setData on the
-    given `aioclient_mock` (Task 4 adds the queue endpoints).
+    given `aioclient_mock` (Task 4 adds the queue endpoints). The fault hooks
+    (offline, raw_replies, push_raw_event, poll_fault) send whatever a test
+    asks for instead.
     """
 
     def __init__(
@@ -51,7 +53,10 @@ class FakeVictrola:
         self.raw_replies: dict[str, str] = {}
         self.subscribe_calls: list[dict[str, Any]] = []
         self.poll_wait_s: float = 0.01
-        self._queues: dict[str, asyncio.Queue[dict[str, Any]]] = {}
+        # Raised once, by the next pollQueue request, straight out of the HTTP
+        # layer: a stand-in for an error aiohttp raises outside ClientError.
+        self.poll_fault: Exception | None = None
+        self._queues: dict[str, asyncio.Queue[Any]] = {}
         self._dropped_queues: set[str] = set()
 
         base = f"http://{host}"
@@ -135,6 +140,9 @@ class FakeVictrola:
         self, method: str, url: URL, data: Any
     ) -> AiohttpClientMockResponse:
         self._check_online()
+        if self.poll_fault is not None:
+            fault, self.poll_fault = self.poll_fault, None
+            raise fault
         queue_id = url.query["queueId"]
         if queue_id in self._dropped_queues or queue_id not in self._queues:
             return AiohttpClientMockResponse(
@@ -155,15 +163,24 @@ class FakeVictrola:
     def push_event(self, path: str, value_json: dict[str, Any]) -> None:
         """Record a value change and queue its event for every live queue."""
         self.values[path] = [value_json]
-        event = {
-            "itemType": "update",
-            "path": path,
-            "itemValue": value_json,
-            "rowsEvents": [],
-        }
+        self.push_raw_event(
+            {
+                "itemType": "update",
+                "path": path,
+                "itemValue": value_json,
+                "rowsEvents": [],
+            }
+        )
+
+    def push_raw_event(self, item: Any) -> None:
+        """Queue one pollQueue list item, exactly as given, for every live queue.
+
+        A fault hook: unlike push_event it neither shapes the item nor
+        records a value change, so a test can send what the device never has.
+        """
         for queue_id, queue in self._queues.items():
             if queue_id not in self._dropped_queues:
-                queue.put_nowait(event)
+                queue.put_nowait(item)
 
     def drop_queues(self) -> None:
         """Make every current queue id answer pollQueue as unknown or expired."""

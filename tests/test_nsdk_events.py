@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from custom_components.victrola_stream.nsdk import (
+    EMPTY,
     NsdkConnectionError,
     NsdkEvent,
     NsdkValue,
@@ -46,6 +47,20 @@ async def test_poll_parses_recorded_event(client, fake):
     assert events == [
         NsdkEvent(path="player:volume", item_type="update", value=NsdkValue("i32_", 0))
     ]
+
+
+def test_event_fields_of_the_wrong_type_read_as_absent():
+    event = NsdkEvent.from_json({"path": 7, "itemType": None, "itemValue": "garbage"})
+
+    assert event == NsdkEvent(path="", item_type="", value=EMPTY)
+
+
+async def test_poll_item_that_is_not_an_object_raises_connection_error(client, fake):
+    queue_id = await client.subscribe(["player:volume"])
+    fake.push_raw_event("garbage")
+
+    with pytest.raises(NsdkConnectionError):
+        await client.poll(queue_id, timeout_s=5)
 
 
 async def test_poll_returns_empty_list_on_timeout(client):
