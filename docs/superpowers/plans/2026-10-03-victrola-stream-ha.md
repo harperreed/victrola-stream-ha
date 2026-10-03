@@ -1,8 +1,8 @@
 # Victrola Stream for Home Assistant — Implementation Plan
 
 ## Now
-- Step: Tasks 1–13 done; final review + fix wave done (114 tests); live checklist done 2026-10-03 16:03–16:17 with Doctor Biz; checklist follow-up (Volume in Sonos mode, Streaming unavailable in UPnP mode, docs) dispatching
-- Next: review the follow-up, then finishing-a-development-branch (merge decision is Doctor Biz's)
+- Step: ALL tasks done and reviewed (Task 14 HELD): final review + fix wave, live checklist, and checklist follow-up complete; `scripts/check` 115 passed; live suite 4 passed / 1 gated skip; finishing-a-development-branch presented
+- Next: Doctor Biz's integration choice (merge locally / PR / keep); later, Task 14 publish after the C1 history rewrite
 - Open: merge `feat/v1` → `main`; git-history rewrite before any publish (C1); Task 14 publish HELD until Doctor Biz says publish
 - Approved: Live checklist: "let's try it live" (2026-10-03); UPnP: "let's wrap up and leave upnp for v2" (2026-10-03)
 - Live checklist results (2026-10-03, Onyx, Sonos mode): motorDet false on platter stop ✅ (16:11:19; an off/on pair at 16:07 during a record change); Sonos session end ✅ exactly 3 min after the stop (isConnectedToSonosGroup false, stream URLs cleared by event); typed writes ✅ with read-back and events for wirelessAudioDelay (enum), mute, autoplay and player:volume; player:volume tracks the Sonos group during a session (Doctor Biz; write 21→22→21 confirmed); changing wirelessAudioDelay restarts the session (~5 s dropout, URLs return with the same ports); an abandoned event queue expired within 14 min (HTTP 400 "Unknown queue id!"); UPnP streaming state → v2
